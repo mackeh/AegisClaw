@@ -15,6 +15,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/sandbox"
 	"github.com/mackeh/AegisClaw/internal/scope"
 	"github.com/mackeh/AegisClaw/internal/secrets"
+	"github.com/mackeh/AegisClaw/internal/server"
 	"github.com/mackeh/AegisClaw/internal/skill"
 	"github.com/spf13/cobra"
 )
@@ -38,6 +39,7 @@ human-in-the-loop approvals, encrypted secrets, and tamper-evident audit logging
 	rootCmd.AddCommand(logsCmd())
 	rootCmd.AddCommand(sandboxCmd())
 	rootCmd.AddCommand(skillsCmd())
+	rootCmd.AddCommand(serveCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -128,7 +130,7 @@ func runCmd() *cobra.Command {
 							cmdName := parts[1]
 							args := parts[2:]
 							
-							if err := agent.ExecuteSkill(cmd.Context(), targetManifest, cmdName, args); err != nil {
+							if _, err := agent.ExecuteSkill(cmd.Context(), targetManifest, cmdName, args); err != nil {
 								fmt.Printf("❌ Execution failed: %v\n", err)
 							}
 						} else {
@@ -392,7 +394,10 @@ func sandboxCmd() *cobra.Command {
 				return err
 			}
 
-			return agent.ExecuteSkill(cmd.Context(), m, cmdName, userArgs)
+			if _, err := agent.ExecuteSkill(cmd.Context(), m, cmdName, userArgs); err != nil {
+				return err
+			}
+			return nil
 		},
 	})
 
@@ -438,5 +443,19 @@ func skillsCmd() *cobra.Command {
 		},
 	})
 
+	return cmd
+}
+func serveCmd() *cobra.Command {
+	var port int
+	cmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Start the AegisClaw API server",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			s := server.NewServer(port)
+			return s.Start()
+		},
+	}
+
+	cmd.Flags().IntVarP(&port, "port", "p", 8080, "Port to listen on")
 	return cmd
 }

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -18,12 +19,19 @@ import (
 	"github.com/mackeh/AegisClaw/internal/skill"
 )
 
+// ExecutionResult holds the captured output of a skill run
+type ExecutionResult struct {
+	ExitCode int
+	Stdout   string
+	Stderr   string
+}
+
 // ExecuteSkill handles the end-to-end execution of a skill command
-func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userArgs []string) error {
+func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userArgs []string) (*ExecutionResult, error) {
 	// 1. Find Command
 	skillCmd, ok := m.Commands[cmdName]
 	if !ok {
-		return fmt.Errorf("command '%s' not found in skill '%s'", cmdName, m.Name)
+		return nil, fmt.Errorf("command '%s' not found in skill '%s'", cmdName, m.Name)
 	}
 
 	// 2. Prepare Scopes
@@ -50,7 +58,7 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 	// 3. Load Policy & Evaluate
 	p, err := policy.LoadDefaultPolicy()
 	if err != nil {
-		return fmt.Errorf("failed to load policy: %w", err)
+		return nil, fmt.Errorf("failed to load policy: %w", err)
 	}
 	engine := policy.NewEngine(p)
 	decision, riskyScopes := engine.EvaluateRequest(req)
@@ -61,13 +69,13 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 	switch decision {
 	case policy.Deny:
 		fmt.Println("❌ Policy DENIED this action.")
-		return fmt.Errorf("policy denied action")
+		return nil, fmt.Errorf("policy denied action")
 
 	case policy.RequireApproval:
 		// Check persistent approvals
 		store, err := approval.NewStore()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		allApproved := true
@@ -85,12 +93,12 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 			// Prompt User
 			userDec, err := approval.RequestApproval(req)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if userDec == "deny" {
 				fmt.Println("❌ User denied the request.")
-				return fmt.Errorf("user denied request")
+				return nil, fmt.Errorf("user denied request")
 			}
 
 			finalDecision = "allow"
@@ -119,7 +127,7 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 	}
 
 	if finalDecision != "allow" {
-		return fmt.Errorf("execution blocked")
+		return nil, fmt.Errorf("execution blocked")
 	}
 
 	// 6. Prepare Execution Environment
@@ -128,7 +136,6 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 
 	// Inject Secrets if allowed
 	if finalDecision == "allow" {
-		cfgDir, _ := config.DefaultConfigDir()
 		secretsDir := filepath.Join(cfgDir, "secrets")
 		mgr := secrets.NewManager(secretsDir)
 
@@ -144,11 +151,12 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 		}
 	}
 
+	// 7. Execute
 	fmt.Printf("🚀 Running skill: %s\n", m.Name)
 
 	exec, err := sandbox.NewDockerExecutor()
 	if err != nil {
-		return fmt.Errorf("failed to initialize executor: %w", err)
+		return nil, fmt.Errorf("failed to initialize executor: %w", err)
 	}
 
 	// Set a default timeout for execution
@@ -163,13 +171,23 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 		AllowedDomains: allowedDomains,
 	})
 	if err != nil {
-		return fmt.Errorf("execution failed: %w", err)
+		return nil, fmt.Errorf("execution failed: %w", err)
 	}
 
-	// Stream output
-	io.Copy(os.Stdout, result.Stdout)
-	io.Copy(os.Stderr, result.Stderr)
+	// Capture output
+	stdoutBuf := new(bytes.Buffer)
+	stderrBuf := new(bytes.Buffer)
+	
+	// We still stream to console for better visibility during 'run' or manual CLI use
+	stdoutTee := io.TeeReader(result.Stdout, stdoutBuf)
+	stderrTee := io.TeeReader(result.Stderr, stderrBuf)
 
-	fmt.Printf("✅ Skill finished (exit code %d)\n", result.ExitCode)
-	return nil
+	io.Copy(os.Stdout, stdoutTee)
+	io.Copy(os.Stderr, stderrTee)
+
+	return &ExecutionResult{
+		ExitCode: result.ExitCode,
+		Stdout:   stdoutBuf.String(),
+		Stderr:   stderrBuf.String(),
+	}, nil
 }
