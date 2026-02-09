@@ -18,9 +18,10 @@ type Config struct {
 	Command     []string
 	Env         []string
 	WorkDir     string
-	Mounts      []Mount // Host path -> Container path
-	Network     bool    // Allow network access?
-	SeccompPath string  // Path to seccomp profile
+	Mounts         []Mount // Host path -> Container path
+	Network        bool    // Allow network access?
+	AllowedDomains []string // Specific domains to allow if Network is true
+	SeccompPath    string  // Path to seccomp profile
 }
 
 // Mount represents a filesystem mount

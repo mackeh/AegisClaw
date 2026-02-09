@@ -1,0 +1,11 @@
+name: network-test
+version: "1.0.0"
+description: "A skill to test network egress filtering"
+image: "curlimages/curl:latest"
+scopes:
+  - "http.request:google.com"
+commands:
+  test-allowed:
+    args: ["-v", "http://google.com"]
+  test-blocked:
+    args: ["-v", "http://bing.com"]

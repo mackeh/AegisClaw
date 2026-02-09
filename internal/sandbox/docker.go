@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/mackeh/AegisClaw/internal/proxy"
 )
 
 // DockerExecutor implements Executor using Docker
@@ -67,6 +69,29 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 		},
 	}
 
+	// 3. Setup Egress Proxy if needed
+	var egressProxy *proxy.EgressProxy
+	proxyEnv := []string{}
+	if cfg.Network && len(cfg.AllowedDomains) > 0 {
+		fmt.Printf("🌐 Enabling egress filtering for domains: %v\n", cfg.AllowedDomains)
+		egressProxy = proxy.NewEgressProxy(cfg.AllowedDomains)
+		_, err := egressProxy.Start()
+		if err != nil {
+			return nil, fmt.Errorf("failed to start egress proxy: %w", err)
+		}
+		defer egressProxy.Stop()
+
+		// Use the bridge IP
+		bridgeIP := getBridgeIP()
+		containerProxyURL := fmt.Sprintf("http://%s:%d", bridgeIP, egressProxy.Port)
+		proxyEnv = []string{
+			"http_proxy=" + containerProxyURL,
+			"https_proxy=" + containerProxyURL,
+			"HTTP_PROXY=" + containerProxyURL,
+			"HTTPS_PROXY=" + containerProxyURL,
+		}
+	}
+
 	// Apply Seccomp profile if provided
 	if cfg.SeccompPath != "" {
 		absPath, err := filepath.Abs(cfg.SeccompPath)
@@ -106,10 +131,11 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 	hostConfig.NetworkMode = container.NetworkMode(networkMode)
 
 	// 2. Create Container
+	containerEnv := append(cfg.Env, proxyEnv...)
 	config := &container.Config{
 		Image:        cfg.Image,
 		Cmd:          cfg.Command,
-		Env:          cfg.Env,
+		Env:          containerEnv,
 		WorkingDir:   cfg.WorkDir,
 		User:         "1000:1000", // Non-root user
 		AttachStdout: true,
@@ -179,4 +205,24 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 // Cleanup is a no-op for now as we remove containers after run
 func (e *DockerExecutor) Cleanup(ctx context.Context) error {
 	return nil
+}
+
+func getBridgeIP() string {
+	// Try docker0 interface first
+	iface, err := net.InterfaceByName("docker0")
+	if err == nil {
+		addrs, err := iface.Addrs()
+		if err == nil {
+			for _, addr := range addrs {
+				if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+					if ipnet.IP.To4() != nil {
+						return ipnet.IP.String()
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback to a common default
+	return "172.17.0.1"
 }

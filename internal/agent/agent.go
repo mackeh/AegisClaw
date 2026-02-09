@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/mackeh/AegisClaw/internal/approval"
 	"github.com/mackeh/AegisClaw/internal/audit"
@@ -27,12 +28,16 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 
 	// 2. Prepare Scopes
 	var reqScopes []scope.Scope
+	var allowedDomains []string
 	needsNetwork := false
 	for _, sStr := range m.Scopes {
 		s, _ := scope.Parse(sStr)
 		reqScopes = append(reqScopes, s)
 		if s.Name == "http.request" || s.Name == "email.send" {
 			needsNetwork = true
+			if s.Resource != "" {
+				allowedDomains = append(allowedDomains, s.Resource)
+			}
 		}
 	}
 
@@ -146,11 +151,16 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 		return fmt.Errorf("failed to initialize executor: %w", err)
 	}
 
+	// Set a default timeout for execution
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
 	result, err := exec.Run(ctx, sandbox.Config{
-		Image:   m.Image,
-		Command: finalArgs,
-		Env:     env,
-		Network: needsNetwork,
+		Image:          m.Image,
+		Command:        finalArgs,
+		Env:            env,
+		Network:        needsNetwork,
+		AllowedDomains: allowedDomains,
 	})
 	if err != nil {
 		return fmt.Errorf("execution failed: %w", err)
