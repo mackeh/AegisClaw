@@ -11,10 +11,17 @@ import (
 
 // Config represents the main AegisClaw configuration
 type Config struct {
-	Version  string          `yaml:"version"`
-	Agent    AgentConfig     `yaml:"agent"`
-	Security SecurityConfig  `yaml:"security"`
-	Network  NetworkConfig   `yaml:"network"`
+	Version  string         `yaml:"version"`
+	Agent    AgentConfig    `yaml:"agent"`
+	Security SecurityConfig `yaml:"security"`
+	Network  NetworkConfig  `yaml:"network"`
+	Registry RegistryConfig `yaml:"registry"`
+}
+
+// RegistryConfig contains skill registry settings
+type RegistryConfig struct {
+	URL       string   `yaml:"url"`
+	TrustKeys []string `yaml:"trust_keys"` // Public keys of trusted signers
 }
 
 // AgentConfig contains agent-specific settings

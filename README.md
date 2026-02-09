@@ -83,7 +83,7 @@ Check the immutable log of actions:
 - [x] **Phase 6: Audit** - Hash-chained logging
 - [x] **Phase 7: Integration** - OpenClaw Protocol Adapter
 - [x] **Phase 8: Network Control** - Egress filtering proxy
-- [ ] **Phase 9: Registry** - Signed skill distribution
+- [x] **Phase 9: Registry** - Signed skill distribution
 
 ## 🤝 Contributing
 

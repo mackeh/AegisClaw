@@ -65,7 +65,7 @@ func runCmd() *cobra.Command {
 		Long:  "Launches the AegisClaw runtime with the configured agent and policies.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Println("🦅 AegisClaw runtime starting...")
-			
+
 			cfgDir, err := config.DefaultConfigDir()
 			if err != nil {
 				return err
@@ -79,15 +79,15 @@ func runCmd() *cobra.Command {
 
 			fmt.Printf("🧩 Loaded %d skills\n", len(manifests))
 			fmt.Println("🤖 Agent is ready. Type 'help' for commands or 'exit' to quit.")
-			
+
 			reader := bufio.NewReader(os.Stdin)
-			
+
 			// Simple REPL for now
 			for {
 				fmt.Print("> ")
 				input, _ := reader.ReadString('\n')
 				input = strings.TrimSpace(input)
-				
+
 				switch input {
 				case "exit", "quit":
 					fmt.Println("👋 Goodbye!")
@@ -112,7 +112,7 @@ func runCmd() *cobra.Command {
 					parts := strings.Fields(input)
 					if len(parts) > 0 {
 						skillName := parts[0]
-						
+
 						// Find matching manifest
 						var targetManifest *skill.Manifest
 						for _, m := range manifests {
@@ -129,7 +129,7 @@ func runCmd() *cobra.Command {
 							}
 							cmdName := parts[1]
 							args := parts[2:]
-							
+
 							if _, err := agent.ExecuteSkill(cmd.Context(), targetManifest, cmdName, args); err != nil {
 								fmt.Printf("❌ Execution failed: %v\n", err)
 							}
@@ -440,6 +440,72 @@ func skillsCmd() *cobra.Command {
 				}
 			}
 			return nil
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "search [QUERY]",
+		Short: "Search for skills in the registry",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.LoadDefault()
+			if err != nil {
+				return fmt.Errorf("failed to load configuration (run 'init' first): %w", err)
+			}
+
+			if cfg.Registry.URL == "" {
+				fmt.Println("⚠️  No registry URL configured. Please update ~/.aegisclaw/config.yaml")
+				return nil
+			}
+
+			fmt.Printf("🔍 Searching registry: %s\n", cfg.Registry.URL)
+			index, err := skill.SearchRegistry(cfg.Registry.URL)
+			if err != nil {
+				return err
+			}
+
+			query := ""
+			if len(args) > 0 {
+				query = strings.ToLower(args[0])
+			}
+
+			fmt.Printf("🧩 Available Skills in '%s':\n", index.RegistryName)
+			found := false
+			for _, s := range index.Skills {
+				if query == "" || strings.Contains(strings.ToLower(s.Name), query) || strings.Contains(strings.ToLower(s.Description), query) {
+					fmt.Printf("  • %-15s v%-8s %s\n", s.Name, s.Version, s.Description)
+					found = true
+				}
+			}
+
+			if !found {
+				fmt.Println("  (No skills matched your search)")
+			}
+
+			return nil
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "add [SKILL_NAME]",
+		Short: "Install a signed skill from the registry",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			skillName := args[0]
+
+			cfg, err := config.LoadDefault()
+			if err != nil {
+				return fmt.Errorf("failed to load configuration (run 'init' first): %w", err)
+			}
+
+			if cfg.Registry.URL == "" {
+				return fmt.Errorf("no registry URL configured")
+			}
+
+			cfgDir, _ := config.DefaultConfigDir()
+			skillsDir := filepath.Join(cfgDir, "skills")
+
+			fmt.Printf("📥 Installing skill '%s'...\n", skillName)
+			return skill.InstallSkill(skillName, skillsDir, cfg.Registry.URL, cfg.Registry.TrustKeys)
 		},
 	})
 
