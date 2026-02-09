@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/mackeh/AegisClaw/internal/approval"
@@ -11,6 +13,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/policy"
 	"github.com/mackeh/AegisClaw/internal/sandbox"
 	"github.com/mackeh/AegisClaw/internal/scope"
+	"github.com/mackeh/AegisClaw/internal/secrets"
 	"github.com/mackeh/AegisClaw/internal/skill"
 )
 
@@ -114,8 +117,28 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 		return fmt.Errorf("execution blocked")
 	}
 
-	// 6. Execute
+	// 6. Prepare Execution Environment
 	finalArgs := append(skillCmd.Args, userArgs...)
+	env := append([]string{}, skillCmd.Env...)
+
+	// Inject Secrets if allowed
+	if finalDecision == "allow" {
+		cfgDir, _ := config.DefaultConfigDir()
+		secretsDir := filepath.Join(cfgDir, "secrets")
+		mgr := secrets.NewManager(secretsDir)
+
+		for _, s := range reqScopes {
+			if s.Name == "secrets.access" && s.Resource != "" {
+				val, err := mgr.Get(s.Resource)
+				if err == nil {
+					env = append(env, fmt.Sprintf("%s=%s", s.Resource, val))
+				} else {
+					fmt.Printf("⚠️  Warning: Secret '%s' requested but not found.\n", s.Resource)
+				}
+			}
+		}
+	}
+
 	fmt.Printf("🚀 Running skill: %s\n", m.Name)
 
 	exec, err := sandbox.NewDockerExecutor()
@@ -126,11 +149,16 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 	result, err := exec.Run(ctx, sandbox.Config{
 		Image:   m.Image,
 		Command: finalArgs,
+		Env:     env,
 		Network: needsNetwork,
 	})
 	if err != nil {
 		return fmt.Errorf("execution failed: %w", err)
 	}
+
+	// Stream output
+	io.Copy(os.Stdout, result.Stdout)
+	io.Copy(os.Stderr, result.Stderr)
 
 	fmt.Printf("✅ Skill finished (exit code %d)\n", result.ExitCode)
 	return nil

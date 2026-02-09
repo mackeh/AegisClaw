@@ -1,0 +1,11 @@
+name: secret-test
+version: "1.0.0"
+description: "A skill to test secret injection"
+image: "alpine:latest"
+scopes:
+  - "secrets.access:MY_API_KEY"
+commands:
+  check:
+    args: ["sh", "-c", "if [ -z \"$MY_API_KEY\" ]; then echo '❌ Secret NOT found'; else echo '✅ Secret found! Length: ${#MY_API_KEY}'; fi"]
+  print-danger:
+    args: ["sh", "-c", "echo \"Value is: $MY_API_KEY\""]
