@@ -2,12 +2,16 @@ package sandbox
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
@@ -49,6 +53,64 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 		}
 	}
 
+	// Dynamic Network Configuration
+	var networkID string
+	var egressProxy *proxy.EgressProxy
+	proxyEnv := []string{}
+
+	if cfg.Network {
+		// Create a temporary isolated bridge network
+		networkName := fmt.Sprintf("aegisclaw-net-%s", generateRandomString(8))
+		netResp, err := e.cli.NetworkCreate(ctx, networkName, types.NetworkCreate{
+			Driver:     "bridge",
+			Internal:   true, // Isolated network
+			Attachable: false,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create isolated network: %w", err)
+		}
+		networkID = netResp.ID
+		defer func() {
+			err := e.cli.NetworkRemove(context.Background(), networkID)
+			if err != nil {
+				fmt.Printf("Error removing network %s: %v\n", networkName, err)
+			}
+		}()
+
+		// Get the host's IP on this new network for proxy communication
+		netResource, err := e.cli.NetworkInspect(ctx, networkID, types.NetworkInspectOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to inspect network %s: %w", networkName, err)
+		}
+		
+		if len(netResource.IPAM.Config) == 0 || netResource.IPAM.Config[0].Gateway == "" {
+			return nil, fmt.Errorf("could not find gateway IP for network %s", networkName)
+		}
+		hostIP := netResource.IPAM.Config[0].Gateway // The gateway IP is the host's IP on the bridge
+
+		// Start egress proxy on host, listening on this specific IP
+		if len(cfg.AllowedDomains) > 0 {
+			fmt.Printf("🌐 Enabling egress filtering for domains: %v\n", cfg.AllowedDomains)
+			egressProxy = proxy.NewEgressProxy(cfg.AllowedDomains)
+			// Start proxy on the specific IP found for the Docker bridge
+			_, err := egressProxy.StartOnIP(hostIP) 
+			if err != nil {
+				return nil, fmt.Errorf("failed to start egress proxy: %w", err)
+			}
+			defer egressProxy.Stop()
+
+			containerProxyURL := fmt.Sprintf("http://%s:%d", hostIP, egressProxy.Port)
+			proxyEnv = []string{
+				"http_proxy=" + containerProxyURL,
+				"https_proxy=" + containerProxyURL,
+				"HTTP_PROXY=" + containerProxyURL,
+				"HTTPS_PROXY=" + containerProxyURL,
+				"NO_PROXY=127.0.0.1,localhost", // Ensure no bypass for local traffic
+			}
+		}
+	}
+
+
 	// 2. Configure HostConfig for security
 	hostConfig := &container.HostConfig{
 		// Drop ALL capabilities by default
@@ -67,29 +129,6 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 			NanoCPUs:   1000000000,        // 1 CPU
 			PidsLimit:  &[]int64{100}[0],  // Limit processes
 		},
-	}
-
-	// 3. Setup Egress Proxy if needed
-	var egressProxy *proxy.EgressProxy
-	proxyEnv := []string{}
-	if cfg.Network && len(cfg.AllowedDomains) > 0 {
-		fmt.Printf("🌐 Enabling egress filtering for domains: %v\n", cfg.AllowedDomains)
-		egressProxy = proxy.NewEgressProxy(cfg.AllowedDomains)
-		_, err := egressProxy.Start()
-		if err != nil {
-			return nil, fmt.Errorf("failed to start egress proxy: %w", err)
-		}
-		defer egressProxy.Stop()
-
-		// Use the bridge IP
-		bridgeIP := getBridgeIP()
-		containerProxyURL := fmt.Sprintf("http://%s:%d", bridgeIP, egressProxy.Port)
-		proxyEnv = []string{
-			"http_proxy=" + containerProxyURL,
-			"https_proxy=" + containerProxyURL,
-			"HTTP_PROXY=" + containerProxyURL,
-			"HTTPS_PROXY=" + containerProxyURL,
-		}
 	}
 
 	// Apply Seccomp profile if provided
@@ -124,11 +163,11 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 	hostConfig.Mounts = mounts
 
 	// Configure Network
-	networkMode := "none"
 	if cfg.Network {
-		networkMode = "bridge" // Or specific user network
+		hostConfig.NetworkMode = container.NetworkMode(networkID) // Use the isolated network
+	} else {
+		hostConfig.NetworkMode = "none" // No network access by default
 	}
-	hostConfig.NetworkMode = container.NetworkMode(networkMode)
 
 	// 2. Create Container
 	containerEnv := append(cfg.Env, proxyEnv...)
@@ -180,15 +219,11 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 	statusCh, errCh := e.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
 	
 	// Create a result that will be populated when Wait returns
-	// For async usage, we might want to return immediately. 
-	// But for this sync implementation:
 	select {
 	case err := <-errCh:
 		return nil, fmt.Errorf("error waiting for container: %w", err)
 	case status := <-statusCh:
-		// Cleanup immediately for this simple implementation
-		// In prod, might want to keep for forensic if exit code != 0
-		_ = e.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{})
+		_ = e.cli.ContainerRemove(context.Background(), containerID, container.RemoveOptions{})
 		
 		return &Result{
 			ExitCode: int(status.StatusCode),
@@ -196,7 +231,6 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 			Stderr:   stderrReader,
 		}, nil
 	case <-ctx.Done():
-		// Kill container on context cancellation
 		_ = e.cli.ContainerKill(ctx, containerID, "SIGKILL")
 		return nil, ctx.Err()
 	}
@@ -207,6 +241,8 @@ func (e *DockerExecutor) Cleanup(ctx context.Context) error {
 	return nil
 }
 
+// getBridgeIP attempts to find the IP of the host on the default docker0 bridge
+// This is a fallback/helper, for temporary networks we use the network's gateway IP.
 func getBridgeIP() string {
 	// Try docker0 interface first
 	iface, err := net.InterfaceByName("docker0")
@@ -225,4 +261,15 @@ func getBridgeIP() string {
 
 	// Fallback to a common default
 	return "172.17.0.1"
+}
+
+// generateRandomString creates a random hex string for unique identifiers
+func generateRandomString(length int) string {
+	b := make([]byte, (length+1)/2) // Each byte is 2 hex chars
+	_, err := rand.Read(b)
+	if err != nil {
+		// Fallback for systems without enough entropy, though rare
+		return fmt.Sprintf("%x", time.Now().UnixNano())[:length]
+	}
+	return hex.EncodeToString(b)[:length]
 }

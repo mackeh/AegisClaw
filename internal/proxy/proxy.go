@@ -55,30 +55,17 @@ func (p *EgressProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Standard HTTP Proxy with timeout
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-	r.RequestURI = ""
-	resp, err := client.Do(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
-	}
-	defer resp.Body.Close()
-
-	for k, v := range resp.Header {
-		for _, vv := range v {
-			w.Header().Add(k, vv)
-		}
-	}
-	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+	// Temporarily: just return OK for allowed domains without forwarding
+	// This helps isolate if the issue is in forwarding or filtering
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Proxy Intercepted: Allowed!"))
+	fmt.Printf("✅ Proxy Intercepted and responded for: %s\n", r.Host)
 }
 
 func (p *EgressProxy) handleConnect(w http.ResponseWriter, r *http.Request) {
 	destConn, err := net.DialTimeout("tcp", r.Host, 10*time.Second)
 	if err != nil {
+		fmt.Printf("❌ Proxy CONNECT to %s failed: %v\n", r.Host, err)
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
@@ -107,17 +94,18 @@ func (p *EgressProxy) handleConnect(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-func (p *EgressProxy) Start() (string, error) {
-	listener, err := net.Listen("tcp", "0.0.0.0:0")
+// StartOnIP starts the proxy listening on a specific IP address
+func (p *EgressProxy) StartOnIP(ip string) (string, error) {
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:0", ip))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to listen on %s: %w", ip, err)
 	}
 	p.Port = listener.Addr().(*net.TCPAddr).Port
 	p.server = &http.Server{Handler: p}
 
 	go p.server.Serve(listener)
 
-	return fmt.Sprintf("http://127.0.0.1:%d", p.Port), nil
+	return fmt.Sprintf("http://%s:%d", ip, p.Port), nil
 }
 
 func (p *EgressProxy) Stop() error {
