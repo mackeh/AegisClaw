@@ -1,10 +1,12 @@
-# 🦅 AegisClaw
+# AegisClaw - Secure Agent Runtime
+
+![AegisClaw Banner](assets/banner.png)
+
+AegisClaw is a **secure-by-default runtime** and security envelope for OpenClaw-style personal AI agents.
 
 ![CI](https://github.com/mackeh/AegisClaw/workflows/build/badge.svg)
 ![Go Version](https://img.shields.io/github/go-mod/go-version/mackeh/AegisClaw)
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
-
-**Secure-by-default runtime for OpenClaw-style personal AI agents.**
 
 > **Goal:** Make "agentic automation" safe enough for individuals by default, and scalable enough for teams.
 
