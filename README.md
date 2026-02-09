@@ -77,15 +77,20 @@ Check the immutable log of actions:
 
 ## 🗺️ Roadmap
 
-- [x] **Phase 1: Foundation** - CLI skeleton & Config
-- [x] **Phase 2: Policy Engine** - Scope definitions & Constraints
-- [x] **Phase 3: Approval System** - TUI for user confirmation
-- [x] **Phase 4: Sandbox** - Hardened Docker executor
-- [x] **Phase 5: Secrets** - `age` encryption
-- [x] **Phase 6: Audit** - Hash-chained logging
-- [x] **Phase 7: Integration** - OpenClaw Protocol Adapter
-- [x] **Phase 8: Network Control** - Egress filtering proxy
-- [x] **Phase 9: Registry** - Signed skill distribution
+### Completed
+
+- [x] **v0.1.0-0.1.7 (Foundations)**: CLI, Policy Engine, TUI Approval, Hardened Docker, `age` Secrets, Audit Logging, OpenClaw Adapter.
+- [x] **v0.1.8 (Egress Control)**: Integrated egress filtering proxy with audit trails.
+- [x] **v0.1.9 (Signed Skills)**: Ed25519 signature verification and registry search/add.
+
+### Upcoming (v0.2+)
+
+- [ ] **Advanced Runtimes**: `docker-compose` support for easy multi-container setups. support for gVisor, Kata Containers, or Nix/bubblewrap for advanced users.
+- [ ] **Safety Layer**: NeMo Guardrails integration for LLM prompt protection and custom execution rails.
+- [ ] **Secret Brokering**: `sops` integration; pluggable support for HashiCorp Vault, Infisical, and Bitwarden.
+- [ ] **Auth & Privacy**: Tailscale/WireGuard integration for private access; Authelia/Keycloak for web UI identity.
+- [ ] **Observability**: OpenTelemetry instrumentation and simple dashboards (Prometheus/Grafana).
+- [ ] **Skills Ecosystem**: Git-based skill distribution with enhanced hash-chained provenance.
 
 ## 🤝 Contributing
 
