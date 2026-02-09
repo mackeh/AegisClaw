@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/mackeh/AegisClaw/internal/approval"
+	"github.com/mackeh/AegisClaw/internal/agent"
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/policy"
@@ -76,27 +78,63 @@ func runCmd() *cobra.Command {
 			fmt.Printf("🧩 Loaded %d skills\n", len(manifests))
 			fmt.Println("🤖 Agent is ready. Type 'help' for commands or 'exit' to quit.")
 			
+			reader := bufio.NewReader(os.Stdin)
+			
 			// Simple REPL for now
 			for {
 				fmt.Print("> ")
-				var input string
-				fmt.Scanln(&input)
+				input, _ := reader.ReadString('\n')
+				input = strings.TrimSpace(input)
 				
 				switch input {
 				case "exit", "quit":
 					fmt.Println("👋 Goodbye!")
 					return nil
+				case "clear":
+					fmt.Print("\033[H\033[2J")
 				case "list", "skills":
 					fmt.Println("Installed skills:")
 					for _, m := range manifests {
 						fmt.Printf("  • %s\n", m.Name)
 					}
 				case "help":
-					fmt.Println("Available commands: list, help, exit")
+					fmt.Println("Available commands:")
+					fmt.Println("  list, skills    List installed skills")
+					fmt.Println("  [skill] [cmd]   Run a skill command (e.g., 'hello-world hello')")
+					fmt.Println("  clear           Clear the screen")
+					fmt.Println("  exit, quit      Exit the runtime")
 				case "":
 					continue
 				default:
-					fmt.Printf("❓ Unknown command: %s\n", input)
+					// Try to parse as skill execution
+					parts := strings.Fields(input)
+					if len(parts) > 0 {
+						skillName := parts[0]
+						
+						// Find matching manifest
+						var targetManifest *skill.Manifest
+						for _, m := range manifests {
+							if m.Name == skillName {
+								targetManifest = m
+								break
+							}
+						}
+
+						if targetManifest != nil {
+							if len(parts) < 2 {
+								fmt.Printf("❌ Usage: %s [command] [args...]\n", skillName)
+								continue
+							}
+							cmdName := parts[1]
+							args := parts[2:]
+							
+							if err := agent.ExecuteSkill(cmd.Context(), targetManifest, cmdName, args); err != nil {
+								fmt.Printf("❌ Execution failed: %v\n", err)
+							}
+						} else {
+							fmt.Printf("❓ Unknown command or skill: %s\n", skillName)
+						}
+					}
 				}
 			}
 		},
@@ -335,125 +373,7 @@ func sandboxCmd() *cobra.Command {
 				return err
 			}
 
-			// 2. Find Command
-			skillCmd, ok := m.Commands[cmdName]
-			if !ok {
-				return fmt.Errorf("command '%s' not found in skill '%s'", cmdName, m.Name)
-			}
-
-			// 3. Prepare Scopes
-			var reqScopes []scope.Scope
-			needsNetwork := false
-			for _, sStr := range m.Scopes {
-				s, _ := scope.Parse(sStr)
-				reqScopes = append(reqScopes, s)
-				if s.Name == "http.request" || s.Name == "email.send" {
-					needsNetwork = true
-				}
-			}
-
-			req := scope.ScopeRequest{
-				RequestedBy: m.Name,
-				Reason:      fmt.Sprintf("Executing action '%s'", cmdName),
-				Scopes:      reqScopes,
-			}
-
-			// 4. Load Policy & Evaluate
-			p, err := policy.LoadDefaultPolicy()
-			if err != nil {
-				return fmt.Errorf("failed to load policy: %w", err)
-			}
-			engine := policy.NewEngine(p)
-			decision, riskyScopes := engine.EvaluateRequest(req)
-
-			finalDecision := "deny"
-
-			// 5. Enforce Decision
-			switch decision {
-			case policy.Deny:
-				fmt.Println("❌ Policy DENIED this action.")
-				return fmt.Errorf("policy denied action")
-
-			case policy.RequireApproval:
-				// Check persistent approvals
-				store, err := approval.NewStore()
-				if err != nil {
-					return err
-				}
-
-				allApproved := true
-				for _, s := range riskyScopes {
-					if store.Check(s.String()) != "always" {
-						allApproved = false
-						break
-					}
-				}
-
-				if allApproved {
-					finalDecision = "allow"
-					fmt.Println("✅ Auto-approved based on previous settings.")
-				} else {
-					// Prompt User
-					userDec, err := approval.RequestApproval(req)
-					if err != nil {
-						return err
-					}
-
-					if userDec == "deny" {
-						fmt.Println("❌ User denied the request.")
-						return fmt.Errorf("user denied request")
-					}
-
-					finalDecision = "allow"
-					if userDec == "always" {
-						for _, s := range riskyScopes {
-							_ = store.Grant(s.String(), "always")
-						}
-						fmt.Println("💾 Approval saved for future requests.")
-					}
-				}
-
-			case policy.Allow:
-				finalDecision = "allow"
-			}
-
-			// 6. Audit Log (Pre-execution)
-			cfgDir, _ := config.DefaultConfigDir()
-			auditPath := filepath.Join(cfgDir, "audit", "audit.log")
-			logger, err := audit.NewLogger(auditPath)
-			if err == nil {
-				// Log the attempt
-				_ = logger.Log("skill.exec", reqScopes, finalDecision, m.Name, map[string]any{
-					"command": cmdName,
-					"image":   m.Image,
-				})
-			}
-
-			if finalDecision != "allow" {
-				return fmt.Errorf("execution blocked")
-			}
-
-			// 7. Execute
-			finalArgs := append(skillCmd.Args, userArgs...)
-			fmt.Printf("🚀 Running skill: %s\n", m.Name)
-
-			exec, err := sandbox.NewDockerExecutor()
-			if err != nil {
-				return fmt.Errorf("failed to initialize executor: %w", err)
-			}
-
-			ctx := cmd.Context()
-			result, err := exec.Run(ctx, sandbox.Config{
-				Image:   m.Image,
-				Command: finalArgs,
-				Network: needsNetwork,
-			})
-			if err != nil {
-				return fmt.Errorf("execution failed: %w", err)
-			}
-
-			fmt.Printf("✅ Skill finished (exit code %d)\n", result.ExitCode)
-			return nil
+			return agent.ExecuteSkill(cmd.Context(), m, cmdName, userArgs)
 		},
 	})
 
