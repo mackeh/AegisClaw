@@ -236,7 +236,7 @@ func secretsCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("🔐 Secret '%s' encryption simulated (Phase 5 MVP)\n", key)
+			fmt.Printf("🔐 Secret '%s' encrypted and saved.\n", key)
 			return nil
 		},
 	})
@@ -245,9 +245,28 @@ func secretsCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List stored secrets (names only)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cfgDir, err := config.DefaultConfigDir()
+			if err != nil {
+				return err
+			}
+
+			secretsDir := filepath.Join(cfgDir, "secrets")
+			mgr := secrets.NewManager(secretsDir)
+
+			keys, err := mgr.List()
+			if err != nil {
+				return err
+			}
+
+			if len(keys) == 0 {
+				fmt.Println("🔐 No secrets stored.")
+				return nil
+			}
+
 			fmt.Println("🔐 Stored Secrets:")
-			// List logic would go here
-			fmt.Println("  (listing not implemented in MVP)")
+			for _, k := range keys {
+				fmt.Printf("  • %s\n", k)
+			}
 			return nil
 		},
 	})

@@ -1,11 +1,14 @@
 package secrets
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"filippo.io/age"
+	"gopkg.in/yaml.v3"
 )
 
 // Manager handles secret encryption and storage
@@ -51,57 +54,137 @@ func (m *Manager) Init() (string, error) {
 	return identity.Recipient().String(), nil
 }
 
-// Store saves a secret value (simplified for MVP: just writing to a file)
-// In a real implementation, this would use SOPS to encrypt a YAML file.
-// For this MVP without the sops binary, we'll implement direct age encryption.
+// Set encrypts and stores a secret value
 func (m *Manager) Set(key, value string) error {
-	// 1. Load recipient (public key)
-	fKeys, err := os.Open(m.keyFile)
-	if err != nil {
-		return fmt.Errorf("failed to open key file (did you run 'secrets init'?): %w", err)
+	secrets, err := m.loadAll()
+	if err != nil && !os.IsNotExist(err) {
+		return err
 	}
-	defer fKeys.Close()
+	if secrets == nil {
+		secrets = make(map[string]string)
+	}
 
-	_, err = age.ParseIdentities(fKeys)
-	if err != nil {
-		return fmt.Errorf("failed to parse keys: %w", err)
-	}
-	
-	// We need the recipient, usually simpler to just parse the first line or store pubkey strictly.
-	// For MVP, simplified approach:
-	// We will assume the secrets file is a simple YAML map, encrypted as a blob.
-	// Loading, decrypting, updating, and re-encrypting.
-	
-	// For stricter MVP: just standard file for now but encrypted content? 
-	// Let's implement a dummy "Encrypted" marker for now as true SOPS integration logic requires external bins.
-	
-	secretsPath := filepath.Join(m.configDir, "secrets.enc")
-	
-	// Implementation note: Fully implementing age encryption in pure Go here is possible 
-	// but might be verbose for this step. Let's create the key infrastructure and 
-	// a placeholder for the actual encryption to keep it buildable.
-	
-	// We'll write to a plaintext file for now, clearly marked, to demonstrate the flow,
-	// or fail if we want to be strict.
-	// BETTER: Let's assume we proceed with the structure but warn about encryption.
-	
-	f, err := os.OpenFile(secretsPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	
-	// Mock encryption
-	if _, err := fmt.Fprintf(f, "%s: [ENCRYPTED]%s\n", key, value); err != nil {
-		return err
-	}
-	
-	return nil
+	secrets[key] = value
+	return m.saveAll(secrets)
 }
 
-// GetRecipient returns the public key for the managed identity
-func (m *Manager) GetRecipient() (string, error) {
-	// Read first line which should be the private key, derive public
-	// This is a simplification.
-	return "age1...", nil 
+// Get retrieves and decrypts a specific secret
+func (m *Manager) Get(key string) (string, error) {
+	secrets, err := m.loadAll()
+	if err != nil {
+		return "", err
+	}
+	val, ok := secrets[key]
+	if !ok {
+		return "", fmt.Errorf("secret '%s' not found", key)
+	}
+	return val, nil
+}
+
+// List returns the names of all stored secrets
+func (m *Manager) List() ([]string, error) {
+	secrets, err := m.loadAll()
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+
+	keys := make([]string, 0, len(secrets))
+	for k := range secrets {
+		keys = append(keys, k)
+	}
+	return keys, nil
+}
+
+func (m *Manager) loadAll() (map[string]string, error) {
+	secretsPath := filepath.Join(m.configDir, "secrets.enc")
+	if _, err := os.Stat(secretsPath); os.IsNotExist(err) {
+		return nil, err
+	}
+
+	// 1. Load identity
+	identity, err := m.getIdentity()
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Read encrypted file
+	f, err := os.Open(secretsPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// 3. Decrypt
+	r, err := age.Decrypt(f, identity)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt secrets: %w", err)
+	}
+
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	// 4. Parse YAML
+	var secrets map[string]string
+	if err := yaml.Unmarshal(data, &secrets); err != nil {
+		return nil, err
+	}
+
+	return secrets, nil
+}
+
+func (m *Manager) saveAll(secrets map[string]string) error {
+	secretsPath := filepath.Join(m.configDir, "secrets.enc")
+
+	// 1. Get recipient
+	identity, err := m.getIdentity()
+	if err != nil {
+		return err
+	}
+	recipient := identity.Recipient()
+
+	// 2. Marshal secrets
+	data, err := yaml.Marshal(secrets)
+	if err != nil {
+		return err
+	}
+
+	// 3. Encrypt
+	buf := &bytes.Buffer{}
+	w, err := age.Encrypt(buf, recipient)
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write(data); err != nil {
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+
+	// 4. Write to disk
+	return os.WriteFile(secretsPath, buf.Bytes(), 0600)
+}
+
+func (m *Manager) getIdentity() (*age.X25519Identity, error) {
+	data, err := os.ReadFile(m.keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read key file (run 'secrets init'): %w", err)
+	}
+
+	// Parse first non-comment line
+	lines := bytes.Split(data, []byte("\n"))
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 || line[0] == '#' {
+			continue
+		}
+		return age.ParseX25519Identity(string(line))
+	}
+
+	return nil, fmt.Errorf("no identity found in key file")
 }
