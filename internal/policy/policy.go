@@ -109,7 +109,7 @@ func checkConstraints(s scope.Scope, constraints map[string]any) bool {
 		for _, p := range paths {
 			if pathStr, ok := p.(string); ok {
 				// Simple prefix match for now. In production, use filepath.Clean/Rel
-				if s.Resource == "" || (len(s.Resource) >= len(pathStr) && s.Resource[:len(pathStr)] == pathStr) {
+				if s.Resource != "" && len(s.Resource) >= len(pathStr) && s.Resource[:len(pathStr)] == pathStr {
 					matched = true
 					break
 				}
@@ -125,7 +125,7 @@ func checkConstraints(s scope.Scope, constraints map[string]any) bool {
 		matched := false
 		for _, d := range domains {
 			if domainStr, ok := d.(string); ok {
-				if s.Resource == domainStr {
+				if s.Resource != "" && s.Resource == domainStr {
 					matched = true
 					break
 				}
