@@ -31,7 +31,23 @@ func NewDockerExecutor() (*DockerExecutor, error) {
 
 // Run executes a command in a hardened Docker container
 func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
-	// 1. Configure HostConfig for security
+	// 1. Ensure image exists
+	_, _, err := e.cli.ImageInspectWithRaw(ctx, cfg.Image)
+	if err != nil {
+		if client.IsErrNotFound(err) {
+			fmt.Printf("📥 Pulling image %s...\n", cfg.Image)
+			reader, err := e.cli.ImagePull(ctx, cfg.Image, image.PullOptions{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to pull image: %w", err)
+			}
+			defer reader.Close()
+			io.Copy(io.Discard, reader)
+		} else {
+			return nil, fmt.Errorf("failed to inspect image: %w", err)
+		}
+	}
+
+	// 2. Configure HostConfig for security
 	hostConfig := &container.HostConfig{
 		// Drop ALL capabilities by default
 		CapDrop: []string{"ALL"},
@@ -108,24 +124,9 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 
 	containerID := resp.ID
 
-	// 3. Start Container
+	// 4. Start Container
 	if err := e.cli.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
-		// Try to verify if image exists
-		_, _, pingErr := e.cli.ImageInspectWithRaw(ctx, cfg.Image)
-		if client.IsErrNotFound(pingErr) {
-			// Pull image if missing
-			reader, pullErr := e.cli.ImagePull(ctx, cfg.Image, image.PullOptions{})
-			if pullErr == nil {
-				io.Copy(io.Discard, reader)
-				reader.Close()
-				// Retry start
-				err = e.cli.ContainerStart(ctx, containerID, container.StartOptions{})
-			}
-		}
-		
-		if err != nil {
-			return nil, fmt.Errorf("failed to start container: %w", err)
-		}
+		return nil, fmt.Errorf("failed to start container: %w", err)
 	}
 
 	// 4. Attach to logs

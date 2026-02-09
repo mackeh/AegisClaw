@@ -1,0 +1,11 @@
+name: hello-world
+version: "1.0.0"
+description: "A simple hello world skill"
+image: "alpine:latest"
+scopes:
+  - "files.read:/tmp"
+commands:
+  hello:
+    args: ["echo", "Hello from AegisClaw!"]
+  list-tmp:
+    args: ["ls", "-la", "/tmp"]
