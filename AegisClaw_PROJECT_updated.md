@@ -4,7 +4,7 @@
 > **Goal:** Make “agentic automation” safe enough for individuals by default, and scalable enough for teams—without losing the power of OpenClaw-style skills (email, calendar, terminal, browsers, chat apps, custom tools).
 
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
-![CI](https://github.com/aegisclaw/aegisclaw/workflows/CI/badge.svg)
+![CI](https://github.com/mackeh/AegisClaw/workflows/build/badge.svg)
 
 ---
 
