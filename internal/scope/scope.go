@@ -90,15 +90,38 @@ var Registry = map[string]Scope{
 	"calendar.read":  CalendarRead,
 }
 
-// Parse parses a scope string into a Scope struct
+// Parse parses a scope string into a Scope struct.
+// Supported formats: "scope.name" or "scope.name:resource"
 func Parse(s string) (Scope, error) {
-	// Check if it's a known scope
-	if scope, ok := Registry[s]; ok {
-		return scope, nil
+	name := s
+	resource := ""
+
+	// Check for resource delimiter
+	if idx := findResourceDelimiter(s); idx != -1 {
+		name = s[:idx]
+		resource = s[idx+1:]
+	}
+
+	// Check if it's a known scope base
+	if baseScope, ok := Registry[name]; ok {
+		return Scope{
+			Name:      name,
+			Resource:  resource,
+			RiskLevel: baseScope.RiskLevel,
+		}, nil
 	}
 	
 	// Unknown scope - return with unknown risk
-	return Scope{Name: s, RiskLevel: RiskMedium}, nil
+	return Scope{Name: name, Resource: resource, RiskLevel: RiskMedium}, nil
+}
+
+func findResourceDelimiter(s string) int {
+	for i := 0; i < len(s); i++ {
+		if s[i] == ':' {
+			return i
+		}
+	}
+	return -1
 }
 
 // ScopeRequest represents a request for one or more scopes

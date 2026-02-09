@@ -85,12 +85,58 @@ func (e *Engine) Evaluate(s scope.Scope) (Decision, *Rule) {
 	// Find matching rule
 	for _, rule := range e.policy.Rules {
 		if rule.Scope == s.Name {
+			// Check constraints if present
+			if len(rule.Constraints) > 0 {
+				if !checkConstraints(s, rule.Constraints) {
+					// Constraints failed - stricter decision needed
+					// For now, fall back to RequireApproval if constraints fail
+					return RequireApproval, &rule
+				}
+			}
 			return parseDecision(rule.Decision), &rule
 		}
 	}
 
 	// Default: require approval for unknown scopes
 	return RequireApproval, nil
+}
+
+func checkConstraints(s scope.Scope, constraints map[string]any) bool {
+	// Simple path prefix check for file scopes
+	if paths, ok := constraints["paths"].([]interface{}); ok {
+		// If paths are defined, resource MUST match one of them
+		matched := false
+		for _, p := range paths {
+			if pathStr, ok := p.(string); ok {
+				// Simple prefix match for now. In production, use filepath.Clean/Rel
+				if s.Resource == "" || (len(s.Resource) >= len(pathStr) && s.Resource[:len(pathStr)] == pathStr) {
+					matched = true
+					break
+				}
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+
+	// Simple domain check for network scopes
+	if domains, ok := constraints["domains"].([]interface{}); ok {
+		matched := false
+		for _, d := range domains {
+			if domainStr, ok := d.(string); ok {
+				if s.Resource == domainStr {
+					matched = true
+					break
+				}
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+
+	return true
 }
 
 // EvaluateRequest evaluates all scopes in a request
