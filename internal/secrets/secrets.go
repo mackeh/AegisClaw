@@ -62,7 +62,7 @@ func (m *Manager) Set(key, value string) error {
 	}
 	defer fKeys.Close()
 
-	_, err := age.ParseIdentities(fKeys)
+	_, err = age.ParseIdentities(fKeys)
 	if err != nil {
 		return fmt.Errorf("failed to parse keys: %w", err)
 	}

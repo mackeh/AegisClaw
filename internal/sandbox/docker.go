@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // DockerExecutor implements Executor using Docker
@@ -114,7 +114,7 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 		_, _, pingErr := e.cli.ImageInspectWithRaw(ctx, cfg.Image)
 		if client.IsErrNotFound(pingErr) {
 			// Pull image if missing
-			reader, pullErr := e.cli.ImagePull(ctx, cfg.Image, container.PullOptions{})
+			reader, pullErr := e.cli.ImagePull(ctx, cfg.Image, image.PullOptions{})
 			if pullErr == nil {
 				io.Copy(io.Discard, reader)
 				reader.Close()
