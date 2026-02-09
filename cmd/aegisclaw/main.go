@@ -61,8 +61,44 @@ func runCmd() *cobra.Command {
 		Long:  "Launches the AegisClaw runtime with the configured agent and policies.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Println("🦅 AegisClaw runtime starting...")
-			fmt.Println("⚠️  Runtime not yet implemented. Coming in Phase 3.")
-			return nil
+			
+			cfgDir, err := config.DefaultConfigDir()
+			if err != nil {
+				return err
+			}
+
+			// Load skills
+			skillsDir := filepath.Join(cfgDir, "skills")
+			manifests, _ := skill.ListSkills(skillsDir)
+			localManifests, _ := skill.ListSkills("skills")
+			manifests = append(manifests, localManifests...)
+
+			fmt.Printf("🧩 Loaded %d skills\n", len(manifests))
+			fmt.Println("🤖 Agent is ready. Type 'help' for commands or 'exit' to quit.")
+			
+			// Simple REPL for now
+			for {
+				fmt.Print("> ")
+				var input string
+				fmt.Scanln(&input)
+				
+				switch input {
+				case "exit", "quit":
+					fmt.Println("👋 Goodbye!")
+					return nil
+				case "list", "skills":
+					fmt.Println("Installed skills:")
+					for _, m := range manifests {
+						fmt.Printf("  • %s\n", m.Name)
+					}
+				case "help":
+					fmt.Println("Available commands: list, help, exit")
+				case "":
+					continue
+				default:
+					fmt.Printf("❓ Unknown command: %s\n", input)
+				}
+			}
 		},
 	}
 }
