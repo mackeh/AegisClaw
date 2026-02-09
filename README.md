@@ -1,85 +1,101 @@
-# AegisClaw
+# 🦅 AegisClaw
 
-**Secure-by-default runtime for OpenClaw-style personal AI agents**
-
-> **Goal:** Make "agentic automation" safe enough for individuals by default, and scalable enough for teams—without losing the power of OpenClaw-style skills (email, calendar, terminal, browsers, chat apps, custom tools).
-
+![CI](https://github.com/mackeh/AegisClaw/workflows/build/badge.svg)
+![Go Version](https://img.shields.io/github/go-mod/go-version/mackeh/AegisClaw)
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
-![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)
+
+**Secure-by-default runtime for OpenClaw-style personal AI agents.**
+
+> **Goal:** Make "agentic automation" safe enough for individuals by default, and scalable enough for teams.
+
+AegisClaw acts as a security envelope around your AI agents, providing sandboxing, granular permissions, and human-in-the-loop approvals.
 
 ---
 
-## What problem does AegisClaw solve?
+## 🚀 Key Features
 
-Personal agents are great—right up until they can:
+- **🐳 Hardened Sandbox**: Executes agent skills in a restricted Docker container (non-root, read-only rootfs, dropped capabilities, seccomp).
+- **🛡️ Granular Scopes**: Permission model (e.g., `files.read:/home/user/docs`, `shell.exec`, `net.outbound:github.com`).
+- **✋ Human-in-the-Loop**: TUI-based approval system for high-risk actions.
+- **🔐 Secret Encryption**: `age`-based encryption for sensitive API keys.
+- **📜 Audit Logging**: Tamper-evident, hash-chained logs of all agent actions.
 
-- read all your email and dump it into a chat,
-- execute shell commands because a prompt said so,
-- leak API keys stored in plaintext,
-- install or run untrusted skills with no provenance,
-- get prompt-injected through messages and do the wrong thing.
+## 📦 Installation
 
-AegisClaw is the **runtime** and **security envelope** that makes these failures much harder to trigger—and much easier to detect, audit, and recover from.
-
----
-
-## Features
-
-- 🔒 **Capability-based permissions** - Skills must declare scopes (`email.send`, `shell.exec`, etc.)
-- 👤 **Human-in-the-loop approvals** - High-risk actions require explicit approval
-- 🐳 **Sandboxed execution** - Docker with hardened seccomp profiles, no root
-- 🔐 **Encrypted secrets** - SOPS/age encrypted, never stored plaintext
-- 📜 **Tamper-evident audit log** - Hash-chained entries for forensic analysis
-- 🛡️ **Default-deny networking** - Explicit allowlists per skill
-
----
-
-## Quickstart
+### From Source
 
 ```bash
-# Build from source
+# Clone the repository
+git clone https://github.com/mackeh/AegisClaw.git
+cd AegisClaw
+
+# Build the binary
 go build -o aegisclaw ./cmd/aegisclaw
 
-# Initialize configuration
+# Verify installation
+./aegisclaw --version
+```
+
+## ⚡ Quick Start
+
+### 1. Initialize
+
+Create the default configuration structure in `~/.aegisclaw`:
+
+```bash
 ./aegisclaw init
-
-# View default policy
-./aegisclaw policy list
-
-# Start the runtime
-./aegisclaw run
 ```
+
+### 2. Configure Secrets
+
+Initialize the encryption keys and set a secret:
+
+```bash
+./aegisclaw secrets init
+./aegisclaw secrets set OPENAI_API_KEY sk-proj-12345
+```
+
+### 3. Run a Sandboxed Command
+
+Test the hardened runtime using a Docker image:
+
+```bash
+# This runs 'echo' inside the sandbox
+./aegisclaw sandbox run-sandbox alpine:latest echo "Hello Safe World"
+```
+
+### 4. View Audit Logs
+
+Check the immutable log of actions:
+
+```bash
+./aegisclaw logs
+./aegisclaw logs verify  # Check cryptographic integrity
+```
+
+## 🗺️ Roadmap
+
+- [x] **Phase 1: Foundation** - CLI skeleton & Config
+- [x] **Phase 2: Policy Engine** - Scope definitions & Constraints
+- [x] **Phase 3: Approval System** - TUI for user confirmation
+- [x] **Phase 4: Sandbox** - Hardened Docker executor
+- [x] **Phase 5: Secrets** - `age` encryption
+- [x] **Phase 6: Audit** - Hash-chained logging
+- [ ] **Phase 7: Integration** - OpenClaw Protocol Adapter
+- [ ] **Phase 8: Network Control** - Egress filtering proxy
+- [ ] **Phase 9: Registry** - Signed skill distribution
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
+
+- [Bug Report](.github/ISSUE_TEMPLATE/bug_report.md)
+- [Feature Request](.github/ISSUE_TEMPLATE/feature_request.md)
+
+## 📜 License
+
+Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 ---
 
-## Project Structure
-
-```
-AegisClaw/
-├── cmd/aegisclaw/       # CLI entrypoint
-├── internal/
-│   ├── config/          # Configuration loading
-│   ├── scope/           # Permission model
-│   ├── policy/          # Policy engine
-│   ├── audit/           # Tamper-evident logging
-│   ├── approval/        # TUI approval system (coming soon)
-│   ├── sandbox/         # Docker executor (coming soon)
-│   └── secrets/         # SOPS/age manager (coming soon)
-├── configs/             # Seccomp profiles
-└── docs/
-```
-
----
-
-## Roadmap
-
-- [x] **v0.1-alpha** - CLI skeleton, scope model, policy engine, audit logging
-- [ ] **v0.1** - TUI approvals, Docker sandbox, SOPS secrets
-- [ ] **v0.2** - OPA integration, Cosign skill verification
-- [ ] **v0.3** - gVisor/Firecracker, enterprise features
-
----
-
-## License
-
-Apache 2.0 — see [LICENSE](LICENSE)
+**Repository Topics:** `security`, `agent-runtime`, `sandbox`, `golang`, `ai-safety`, `docker`, `seccomp`
