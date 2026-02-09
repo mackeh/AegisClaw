@@ -56,9 +56,15 @@ func (m *Manager) Init() (string, error) {
 // For this MVP without the sops binary, we'll implement direct age encryption.
 func (m *Manager) Set(key, value string) error {
 	// 1. Load recipient (public key)
-	identities, err := age.ParseIdentities(m.keyFile)
+	fKeys, err := os.Open(m.keyFile)
 	if err != nil {
-		return fmt.Errorf("failed to load keys (did you run 'secrets init'?): %w", err)
+		return fmt.Errorf("failed to open key file (did you run 'secrets init'?): %w", err)
+	}
+	defer fKeys.Close()
+
+	identities, err := age.ParseIdentities(fKeys)
+	if err != nil {
+		return fmt.Errorf("failed to parse keys: %w", err)
 	}
 	
 	// We need the recipient, usually simpler to just parse the first line or store pubkey strictly.
