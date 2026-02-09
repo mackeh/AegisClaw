@@ -3,6 +3,7 @@ package skill
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -40,4 +41,26 @@ func LoadManifest(path string) (*Manifest, error) {
 	}
 
 	return &m, nil
+}
+
+// ListSkills scans the given directory for skill manifests
+func ListSkills(dir string) ([]*Manifest, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read skills directory: %w", err)
+	}
+
+	var manifests []*Manifest
+	for _, entry := range entries {
+		if entry.IsDir() {
+			manifestPath := filepath.Join(dir, entry.Name(), "skill.yaml")
+			if _, err := os.Stat(manifestPath); err == nil {
+				m, err := LoadManifest(manifestPath)
+				if err == nil {
+					manifests = append(manifests, m)
+				}
+			}
+		}
+	}
+	return manifests, nil
 }

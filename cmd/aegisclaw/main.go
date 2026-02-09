@@ -35,6 +35,7 @@ human-in-the-loop approvals, encrypted secrets, and tamper-evident audit logging
 	rootCmd.AddCommand(secretsCmd())
 	rootCmd.AddCommand(logsCmd())
 	rootCmd.AddCommand(sandboxCmd())
+	rootCmd.AddCommand(skillsCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -86,11 +87,11 @@ func policyCmd() *cobra.Command {
 			for _, rule := range p.Rules {
 				// Parse scope to get risk level
 				s, _ := scope.Parse(rule.Scope)
-				
-				fmt.Printf("  • %-15s → %s (%s %s)\n", 
-					rule.Scope, 
-					rule.Decision, 
-					s.RiskLevel.Emoji(), 
+
+				fmt.Printf("  • %-15s → %s (%s %s)\n",
+					rule.Scope,
+					rule.Decision,
+					s.RiskLevel.Emoji(),
 					s.RiskLevel.String(),
 				)
 
@@ -148,15 +149,15 @@ func secretsCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key := args[0]
 			val := args[1]
-			
+
 			cfgDir, err := config.DefaultConfigDir()
 			if err != nil {
 				return err
 			}
-			
+
 			secretsDir := filepath.Join(cfgDir, "secrets")
 			mgr := secrets.NewManager(secretsDir)
-			
+
 			if err := mgr.Set(key, val); err != nil {
 				return err
 			}
@@ -203,7 +204,7 @@ func logsCmd() *cobra.Command {
 
 			fmt.Println("📜 Audit Log:")
 			for _, e := range entries {
-				fmt.Printf("[%s] %s by %s (%s) → %s\n", 
+				fmt.Printf("[%s] %s by %s (%s) → %s\n",
 					e.Timestamp.Format(time.RFC3339),
 					e.Action,
 					e.Actor,
@@ -237,52 +238,6 @@ func logsCmd() *cobra.Command {
 			} else {
 				fmt.Println("❌ Log integrity check returned false.")
 			}
-			return nil
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "example-request",
-		Short: "Simulate a permission request (demo)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Create a dummy high-risk request
-			req := scope.ScopeRequest{
-				RequestedBy: "WebBrowserSkill",
-				Reason:      "Needs to execute curl to download a file",
-				Scopes: []scope.Scope{
-					scope.ShellExec,
-					{Name: "files.write", Resource: "/tmp/download.zip", RiskLevel: scope.RiskHigh},
-				},
-			}
-
-			fmt.Println("🤖 Skill is requesting permissions...")
-			
-			// Check if already approved (in real implementation, this would be in policy engine)
-			store, err := approval.NewStore()
-			if err != nil {
-				return err
-			}
-			
-			// Simple check for first scope
-			if decision := store.Check("shell.exec"); decision == "always" {
-				fmt.Println("✅ Auto-approved based on previous 'always' decision.")
-				return nil
-			}
-
-			// Prompt user
-			decision, err := approval.RequestApproval(req)
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("User decision: %s\n", decision)
-
-			if decision == "always" {
-				if err := store.Grant("shell.exec", "always"); err != nil {
-					fmt.Printf("Failed to save approval: %v\n", err)
-				}
-			}
-
 			return nil
 		},
 	})
@@ -329,141 +284,184 @@ func sandboxCmd() *cobra.Command {
 		},
 	})
 
-		cmd.AddCommand(&cobra.Command{
-			Use:   "run-skill [MANIFEST_PATH] [COMMAND_NAME] [ARGS...]",
-			Short: "Run a named command from a skill manifest",
-			Args:  cobra.MinimumNArgs(2),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				manifestPath := args[0]
-				cmdName := args[1]
-				userArgs := args[2:]
-	
-				// 1. Load Manifest
-				m, err := skill.LoadManifest(manifestPath)
+	cmd.AddCommand(&cobra.Command{
+		Use:   "run-skill [MANIFEST_PATH] [COMMAND_NAME] [ARGS...]",
+		Short: "Run a named command from a skill manifest",
+		Args:  cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			manifestPath := args[0]
+			cmdName := args[1]
+			userArgs := args[2:]
+
+			// 1. Load Manifest
+			m, err := skill.LoadManifest(manifestPath)
+			if err != nil {
+				return err
+			}
+
+			// 2. Find Command
+			skillCmd, ok := m.Commands[cmdName]
+			if !ok {
+				return fmt.Errorf("command '%s' not found in skill '%s'", cmdName, m.Name)
+			}
+
+			// 3. Prepare Scopes
+			var reqScopes []scope.Scope
+			needsNetwork := false
+			for _, sStr := range m.Scopes {
+				s, _ := scope.Parse(sStr)
+				reqScopes = append(reqScopes, s)
+				if s.Name == "http.request" || s.Name == "email.send" {
+					needsNetwork = true
+				}
+			}
+
+			req := scope.ScopeRequest{
+				RequestedBy: m.Name,
+				Reason:      fmt.Sprintf("Executing action '%s'", cmdName),
+				Scopes:      reqScopes,
+			}
+
+			// 4. Load Policy & Evaluate
+			p, err := policy.LoadDefaultPolicy()
+			if err != nil {
+				return fmt.Errorf("failed to load policy: %w", err)
+			}
+			engine := policy.NewEngine(p)
+			decision, riskyScopes := engine.EvaluateRequest(req)
+
+			finalDecision := "deny"
+
+			// 5. Enforce Decision
+			switch decision {
+			case policy.Deny:
+				fmt.Println("❌ Policy DENIED this action.")
+				return fmt.Errorf("policy denied action")
+
+			case policy.RequireApproval:
+				// Check persistent approvals
+				store, err := approval.NewStore()
 				if err != nil {
 					return err
 				}
-	
-				// 2. Find Command
-				skillCmd, ok := m.Commands[cmdName]
-				if !ok {
-					return fmt.Errorf("command '%s' not found in skill '%s'", cmdName, m.Name)
-				}
-	
-				// 3. Prepare Scopes
-				var reqScopes []scope.Scope
-				needsNetwork := false
-				for _, sStr := range m.Scopes {
-					s, _ := scope.Parse(sStr)
-					reqScopes = append(reqScopes, s)
-					if s.Name == "http.request" || s.Name == "email.send" {
-						needsNetwork = true
+
+				allApproved := true
+				for _, s := range riskyScopes {
+					if store.Check(s.String()) != "always" {
+						allApproved = false
+						break
 					}
 				}
-	
-				req := scope.ScopeRequest{
-					RequestedBy: m.Name,
-					Reason:      fmt.Sprintf("Executing action '%s'", cmdName),
-					Scopes:      reqScopes,
-				}
-	
-				// 4. Load Policy & Evaluate
-				p, err := policy.LoadDefaultPolicy()
-				if err != nil {
-					return fmt.Errorf("failed to load policy: %w", err)
-				}
-				engine := policy.NewEngine(p)
-				decision, riskyScopes := engine.EvaluateRequest(req)
-	
-				finalDecision := "deny"
-				
-				// 5. Enforce Decision
-				switch decision {
-				case policy.Deny:
-					fmt.Println("❌ Policy DENIED this action.")
-					return fmt.Errorf("policy denied action")
-				
-				case policy.RequireApproval:
-					// Check persistent approvals
-					store, err := approval.NewStore()
+
+				if allApproved {
+					finalDecision = "allow"
+					fmt.Println("✅ Auto-approved based on previous settings.")
+				} else {
+					// Prompt User
+					userDec, err := approval.RequestApproval(req)
 					if err != nil {
 						return err
 					}
-	
-					allApproved := true
-					for _, s := range riskyScopes {
-						if store.Check(s.String()) != "always" {
-							allApproved = false
-							break
-						}
+
+					if userDec == "deny" {
+						fmt.Println("❌ User denied the request.")
+						return fmt.Errorf("user denied request")
 					}
-	
-					if allApproved {
-						finalDecision = "allow"
-						fmt.Println("✅ Auto-approved based on previous settings.")
-					} else {
-						// Prompt User
-						userDec, err := approval.RequestApproval(req)
-						if err != nil {
-							return err
-						}
-						
-						if userDec == "deny" {
-							fmt.Println("❌ User denied the request.")
-							return fmt.Errorf("user denied request")
-						}
-						
-						finalDecision = "allow"
-						if userDec == "always" {
-							for _, s := range riskyScopes {
-								_ = store.Grant(s.String(), "always")
-							}
-							fmt.Println("💾 Approval saved for future requests.")
-						}
-					}
-	
-				case policy.Allow:
+
 					finalDecision = "allow"
+					if userDec == "always" {
+						for _, s := range riskyScopes {
+							_ = store.Grant(s.String(), "always")
+						}
+						fmt.Println("💾 Approval saved for future requests.")
+					}
 				}
-	
-				// 6. Audit Log (Pre-execution)
-				cfgDir, _ := config.DefaultConfigDir()
-				auditPath := filepath.Join(cfgDir, "audit", "audit.log")
-				logger, err := audit.NewLogger(auditPath)
-				if err == nil {
-					// Log the attempt
-					_ = logger.Log("skill.exec", reqScopes, finalDecision, m.Name, map[string]any{
-						"command": cmdName,
-						"image":   m.Image,
-					})
-				}
-	
-				if finalDecision != "allow" {
-					return fmt.Errorf("execution blocked")
-				}
-	
-				// 7. Execute
-				finalArgs := append(skillCmd.Args, userArgs...)
-				fmt.Printf("🚀 Running skill: %s\n", m.Name)
-				
-				exec, err := sandbox.NewDockerExecutor()
-				if err != nil {
-					return fmt.Errorf("failed to initialize executor: %w", err)
-				}
-	
-				ctx := cmd.Context()
-				result, err := exec.Run(ctx, sandbox.Config{
-					Image:   m.Image,
-					Command: finalArgs,
-					Network: needsNetwork,
+
+			case policy.Allow:
+				finalDecision = "allow"
+			}
+
+			// 6. Audit Log (Pre-execution)
+			cfgDir, _ := config.DefaultConfigDir()
+			auditPath := filepath.Join(cfgDir, "audit", "audit.log")
+			logger, err := audit.NewLogger(auditPath)
+			if err == nil {
+				// Log the attempt
+				_ = logger.Log("skill.exec", reqScopes, finalDecision, m.Name, map[string]any{
+					"command": cmdName,
+					"image":   m.Image,
 				})
-				if err != nil {
-					return fmt.Errorf("execution failed: %w", err)
-				}
-	
-				fmt.Printf("✅ Skill finished (exit code %d)\n", result.ExitCode)
+			}
+
+			if finalDecision != "allow" {
+				return fmt.Errorf("execution blocked")
+			}
+
+			// 7. Execute
+			finalArgs := append(skillCmd.Args, userArgs...)
+			fmt.Printf("🚀 Running skill: %s\n", m.Name)
+
+			exec, err := sandbox.NewDockerExecutor()
+			if err != nil {
+				return fmt.Errorf("failed to initialize executor: %w", err)
+			}
+
+			ctx := cmd.Context()
+			result, err := exec.Run(ctx, sandbox.Config{
+				Image:   m.Image,
+				Command: finalArgs,
+				Network: needsNetwork,
+			})
+			if err != nil {
+				return fmt.Errorf("execution failed: %w", err)
+			}
+
+			fmt.Printf("✅ Skill finished (exit code %d)\n", result.ExitCode)
+			return nil
+		},
+	})
+
+	return cmd
+}
+
+func skillsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "skills",
+		Short: "Manage agent skills",
+	}
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List installed skills",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfgDir, err := config.DefaultConfigDir()
+			if err != nil {
+				return err
+			}
+
+			skillsDir := filepath.Join(cfgDir, "skills")
+
+			// Also check local skills directory if it exists
+			manifests, _ := skill.ListSkills(skillsDir)
+
+			localManifests, _ := skill.ListSkills("skills")
+			manifests = append(manifests, localManifests...)
+
+			if len(manifests) == 0 {
+				fmt.Println("📭 No skills installed.")
 				return nil
-			},
-		})
+			}
+
+			fmt.Println("🧩 Installed Skills:")
+			for _, m := range manifests {
+				fmt.Printf("  • %-15s v%-8s %s\n", m.Name, m.Version, m.Description)
+				for name, c := range m.Commands {
+					fmt.Printf("    └─ %s: %v\n", name, c.Args)
+				}
+			}
+			return nil
+		},
+	})
+
 	return cmd
 }
