@@ -1,0 +1,66 @@
+# AegisClaw - Secure Agent Runtime
+
+AegisClaw is a **secure-by-default runtime** and security envelope for OpenClaw-style personal AI agents. It mitigates risks like prompt injection, secrets leakage, and over-permissioned tools by providing a hardened execution boundary.
+
+## 🛡️ Design Principles
+
+1.  **Secure by Default**: No exposed ports, no plaintext secrets, and non-root execution out-of-the-box.
+2.  **Least Privilege**: Capability-based access (scopes) where every tool request must declare its requirements.
+3.  **Defense in Depth**: Combines guardrails, policy engines, sandboxing, and signed artifacts.
+4.  **Reproducible & Auditable**: Focus on SBOMs, attestations, and tamper-evident logging.
+5.  **Human-in-the-Loop**: Mandatory approvals for high-risk actions (e.g., payments, shell execution).
+
+## 🏗️ Architecture
+
+-   **Policy Engine**: Evaluates scope requests against local rules.
+-   **Sandbox Executor**: Hardened Docker (with future gVisor/Firecracker support).
+-   **Secret Broker**: Injects short-lived, scoped credentials using `age` encryption.
+-   **Audit Log**: Hash-chained, tamper-evident record of all actions.
+-   **Context Firewall**: (Planned) Blocks untrusted input from modifying system/tool policy.
+
+## ☣️ Threat Model (v1)
+
+AegisClaw is specifically designed to defend against:
+-   **Prompt Injection** via untrusted inbound content.
+-   **Malicious Skills** (supply-chain attacks).
+-   **Secrets Leakage** in logs or prompts.
+-   **Lateral Movement** from the sandbox to the host OS.
+
+## 🛠️ Building and Running
+
+### Prerequisites
+- Go 1.22+
+- Docker
+
+### Key Commands
+-   **Build**: `go build -o aegisclaw ./cmd/aegisclaw`
+-   **Init**: `./aegisclaw init` (creates `~/.aegisclaw` structure)
+-   **Sandbox Test**: `./aegisclaw sandbox run-sandbox alpine:latest echo "Hello Safe World"`
+-   **Secrets**: `./aegisclaw secrets init` followed by `set` commands.
+-   **Audit**: `./aegisclaw logs verify` to check cryptographic integrity.
+
+## 📜 Development Conventions
+
+-   **Internal-First**: Core logic resides in `internal/` to prevent external dependency bloat and enforce encapsulation.
+-   **Restrictive Defaults**: Always default to `deny` or `RequireApproval`.
+-   **Immutability**: Audit logs are append-only; sandbox filesystems are read-only by default.
+
+## 🗺️ Roadmap
+
+### v0.1 (Current MVP)
+- [x] CLI (init/run/logs/policy)
+- [x] Hardened Docker sandbox
+- [x] Scope model & TUI approval UI
+- [x] `age` secret management
+- [x] Hash-chained audit logging
+
+### v0.2
+- [ ] OPA policy engine integration
+- [ ] Cosign signature verification for skills
+- [ ] SBOM/Provenance generation
+- [ ] Headless safe browser tool
+
+### v0.3+
+- [ ] gVisor/Bubblewrap/Firecracker support
+- [ ] Network egress filtering proxy
+- [ ] Multi-agent profiles
