@@ -169,6 +169,7 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 		Env:            env,
 		Network:        needsNetwork,
 		AllowedDomains: allowedDomains,
+		AuditLogger:    logger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("execution failed: %w", err)
@@ -177,7 +178,7 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 	// Capture output
 	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
-	
+
 	// We still stream to console for better visibility during 'run' or manual CLI use
 	stdoutTee := io.TeeReader(result.Stdout, stdoutBuf)
 	stderrTee := io.TeeReader(result.Stderr, stderrBuf)

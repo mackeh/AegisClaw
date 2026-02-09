@@ -7,40 +7,69 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/mackeh/AegisClaw/internal/audit"
 )
 
 // EgressProxy is a simple filtering proxy
 type EgressProxy struct {
 	AllowedDomains []string
 	Port           int
+	Logger         *audit.Logger
 	server         *http.Server
 }
 
-func NewEgressProxy(allowed []string) *EgressProxy {
+func NewEgressProxy(allowed []string, logger *audit.Logger) *EgressProxy {
 	return &EgressProxy{
 		AllowedDomains: allowed,
+		Logger:         logger,
 	}
 }
 
 func (p *EgressProxy) isAllowed(host string) bool {
-	if len(p.AllowedDomains) == 0 {
-		return true // Default allow if no domains specified
-	}
-
 	// Clean host (remove port)
 	h := host
 	if idx := strings.Index(host, ":"); idx != -1 {
 		h = host[:idx]
 	}
 
-	for _, allowed := range p.AllowedDomains {
-		if h == allowed || strings.HasSuffix(h, "."+allowed) {
-			fmt.Printf("✅ Allowed egress to: %s (matched %s)\n", h, allowed)
-			return true
+	allowed := false
+	match := ""
+
+	if len(p.AllowedDomains) == 0 {
+		allowed = true // Default allow if no domains specified
+	} else {
+		for _, a := range p.AllowedDomains {
+			if h == a || strings.HasSuffix(h, "."+a) {
+				allowed = true
+				match = a
+				break
+			}
 		}
 	}
-	fmt.Printf("🚫 Denied egress to: %s\n", h)
-	return false
+
+	if allowed {
+		if match != "" {
+			fmt.Printf("✅ Allowed egress to: %s (matched %s)\n", h, match)
+		} else {
+			fmt.Printf("✅ Allowed egress to: %s (default allow)\n", h)
+		}
+	} else {
+		fmt.Printf("🚫 Denied egress to: %s\n", h)
+	}
+
+	if p.Logger != nil {
+		decision := "deny"
+		if allowed {
+			decision = "allow"
+		}
+		_ = p.Logger.Log("network.egress", nil, decision, "proxy", map[string]any{
+			"host":    h,
+			"matched": match,
+		})
+	}
+
+	return allowed
 }
 
 func (p *EgressProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -55,11 +84,28 @@ func (p *EgressProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Temporarily: just return OK for allowed domains without forwarding
-	// This helps isolate if the issue is in forwarding or filtering
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Proxy Intercepted: Allowed!"))
-	fmt.Printf("✅ Proxy Intercepted and responded for: %s\n", r.Host)
+	// Standard HTTP Proxy with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	r.RequestURI = ""
+	resp, err := client.Do(r)
+	if err != nil {
+		fmt.Printf("❌ Proxy HTTP request failed to %s: %v\n", r.URL.Host, err)
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("✅ Proxy received response from %s with status: %d\n", r.URL.Host, resp.StatusCode)
+
+	for k, v := range resp.Header {
+		for _, vv := range v {
+			w.Header().Add(k, vv)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }
 
 func (p *EgressProxy) handleConnect(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +116,7 @@ func (p *EgressProxy) handleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	
+
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
 		http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
@@ -94,18 +140,18 @@ func (p *EgressProxy) handleConnect(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// StartOnIP starts the proxy listening on a specific IP address
-func (p *EgressProxy) StartOnIP(ip string) (string, error) {
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:0", ip))
+// Start starts the proxy listening on 127.0.0.1:0
+func (p *EgressProxy) Start() (string, error) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return "", fmt.Errorf("failed to listen on %s: %w", ip, err)
+		return "", err
 	}
 	p.Port = listener.Addr().(*net.TCPAddr).Port
 	p.server = &http.Server{Handler: p}
 
 	go p.server.Serve(listener)
 
-	return fmt.Sprintf("http://%s:%d", ip, p.Port), nil
+	return fmt.Sprintf("http://127.0.0.1:%d", p.Port), nil
 }
 
 func (p *EgressProxy) Stop() error {

@@ -1,7 +1,7 @@
 name: network-test
 version: "1.0.0"
 description: "A skill to test network egress filtering"
-image: "curlimages/curl:latest"
+image: "alpine:latest"
 scopes:
   - "http.request:google.com"
 commands:
@@ -9,3 +9,5 @@ commands:
     args: ["-v", "http://google.com"]
   test-blocked:
     args: ["-v", "http://bing.com"]
+  debug-net:
+    args: ["sh", "-c", "apk add --no-cache iproute2 wget; ip route; cat /etc/resolv.conf; env | grep -i proxy; netstat -tulnp || true; wget -e use_proxy=yes -e http_proxy=$HTTP_PROXY --proxy-user=test --proxy-password=test --timeout=5 --tries=1 http://google.com || true; wget -e use_proxy=yes -e http_proxy=$HTTP_PROXY --proxy-user=test --proxy-password=test --timeout=5 --tries=1 http://bing.com || true"]

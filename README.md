@@ -81,8 +81,8 @@ Check the immutable log of actions:
 - [x] **Phase 4: Sandbox** - Hardened Docker executor
 - [x] **Phase 5: Secrets** - `age` encryption
 - [x] **Phase 6: Audit** - Hash-chained logging
-- [ ] **Phase 7: Integration** - OpenClaw Protocol Adapter
-- [ ] **Phase 8: Network Control** - Egress filtering proxy
+- [x] **Phase 7: Integration** - OpenClaw Protocol Adapter
+- [x] **Phase 8: Network Control** - Egress filtering proxy
 - [ ] **Phase 9: Registry** - Signed skill distribution
 
 ## 🤝 Contributing

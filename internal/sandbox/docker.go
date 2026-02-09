@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
@@ -54,52 +53,21 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 	}
 
 	// Dynamic Network Configuration
-	var networkID string
 	var egressProxy *proxy.EgressProxy
 	proxyEnv := []string{}
 
-	if cfg.Network {
-		// Create a temporary isolated bridge network
-		networkName := fmt.Sprintf("aegisclaw-net-%s", generateRandomString(8))
-		netResp, err := e.cli.NetworkCreate(ctx, networkName, types.NetworkCreate{
-			Driver:     "bridge",
-			Internal:   true, // Isolated network
-			Attachable: false,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create isolated network: %w", err)
-		}
-		networkID = netResp.ID
-		defer func() {
-			err := e.cli.NetworkRemove(context.Background(), networkID)
-			if err != nil {
-				fmt.Printf("Error removing network %s: %v\n", networkName, err)
-			}
-		}()
-
-		// Get the host's IP on this new network for proxy communication
-		netResource, err := e.cli.NetworkInspect(ctx, networkID, types.NetworkInspectOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to inspect network %s: %w", networkName, err)
-		}
-		
-		if len(netResource.IPAM.Config) == 0 || netResource.IPAM.Config[0].Gateway == "" {
-			return nil, fmt.Errorf("could not find gateway IP for network %s", networkName)
-		}
-		hostIP := netResource.IPAM.Config[0].Gateway // The gateway IP is the host's IP on the bridge
-
-		// Start egress proxy on host, listening on this specific IP
+	if cfg.Network { // If network is requested, enable filtering if domains are specified
+		// Start egress proxy on host, listening on 127.0.0.1
 		if len(cfg.AllowedDomains) > 0 {
 			fmt.Printf("🌐 Enabling egress filtering for domains: %v\n", cfg.AllowedDomains)
-			egressProxy = proxy.NewEgressProxy(cfg.AllowedDomains)
-			// Start proxy on the specific IP found for the Docker bridge
-			_, err := egressProxy.StartOnIP(hostIP) 
+			egressProxy = proxy.NewEgressProxy(cfg.AllowedDomains, cfg.AuditLogger)
+			_, err := egressProxy.Start() // Proxy binds to 127.0.0.1
 			if err != nil {
 				return nil, fmt.Errorf("failed to start egress proxy: %w", err)
 			}
 			defer egressProxy.Stop()
 
-			containerProxyURL := fmt.Sprintf("http://%s:%d", hostIP, egressProxy.Port)
+			containerProxyURL := fmt.Sprintf("http://host.docker.internal:%d", egressProxy.Port)
 			proxyEnv = []string{
 				"http_proxy=" + containerProxyURL,
 				"https_proxy=" + containerProxyURL,
@@ -110,18 +78,17 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 		}
 	}
 
-
 	// 2. Configure HostConfig for security
 	hostConfig := &container.HostConfig{
 		// Drop ALL capabilities by default
 		CapDrop: []string{"ALL"},
-		
+
 		// Prevent privilege escalation
 		SecurityOpt: []string{"no-new-privileges"},
-		
+
 		// Read-only root filesystem
 		ReadonlyRootfs: true,
-		
+
 		// Resources
 		Resources: container.Resources{
 			Memory:     512 * 1024 * 1024, // 512MB RAM limit
@@ -129,6 +96,8 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 			NanoCPUs:   1000000000,        // 1 CPU
 			PidsLimit:  &[]int64{100}[0],  // Limit processes
 		},
+		// Allow talking to host for the proxy
+		ExtraHosts: []string{"host.docker.internal:host-gateway"},
 	}
 
 	// Apply Seccomp profile if provided
@@ -164,7 +133,7 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 
 	// Configure Network
 	if cfg.Network {
-		hostConfig.NetworkMode = container.NetworkMode(networkID) // Use the isolated network
+		hostConfig.NetworkMode = "bridge" // Use default bridge network
 	} else {
 		hostConfig.NetworkMode = "none" // No network access by default
 	}
@@ -217,14 +186,14 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 
 	// 5. Wait for exit
 	statusCh, errCh := e.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
-	
+
 	// Create a result that will be populated when Wait returns
 	select {
 	case err := <-errCh:
 		return nil, fmt.Errorf("error waiting for container: %w", err)
 	case status := <-statusCh:
 		_ = e.cli.ContainerRemove(context.Background(), containerID, container.RemoveOptions{})
-		
+
 		return &Result{
 			ExitCode: int(status.StatusCode),
 			Stdout:   stdoutReader,
