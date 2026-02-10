@@ -47,20 +47,28 @@ AegisClaw is specifically designed to defend against:
 
 ## 🗺️ Roadmap
 
-### v0.1 (Current MVP)
+### v0.1.x (Foundations)
 - [x] CLI (init/run/logs/policy)
 - [x] Hardened Docker sandbox
 - [x] Scope model & TUI approval UI
 - [x] `age` secret management
 - [x] Hash-chained audit logging
 
-### v0.2
-- [ ] OPA policy engine integration
-- [ ] Cosign signature verification for skills
+### v0.2.x (Policy & Runtimes)
+- [x] OPA policy engine integration
+- [x] Cosign signature verification for skills
+- [x] gVisor/runsc support via `sandbox_runtime`
+
+### v0.3.x (Observability & UX)
+- [x] Modern Web Dashboard
+- [x] Real-time Terminal Streaming
+- [x] Prometheus Metrics & OpenTelemetry Tracing
+- [x] Active Secret Redaction
+- [x] Emergency Lockdown (Panic Button)
+
+### Upcoming
+- [ ] OPA policy engine integration (Enhanced rules)
 - [ ] SBOM/Provenance generation
 - [ ] Headless safe browser tool
-
-### v0.3+
-- [ ] gVisor/Bubblewrap/Firecracker support
 - [ ] Network egress filtering proxy
 - [ ] Multi-agent profiles

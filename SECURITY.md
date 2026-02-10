@@ -4,8 +4,9 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
-| < 0.1   | :x:                |
+| 0.3.x   | :white_check_mark: |
+| 0.2.x   | :white_check_mark: |
+| < 0.2   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -22,15 +23,15 @@ If you discover a security vulnerability in AegisClaw, please report it privatel
 AegisClaw is designed to protect against:
 
 - **Malicious Skills**: Containment via Docker/gVisor and strict capability dropping.
-- **Prompt Injection**: (Planned) Context firewall to sanitize inputs.
-- **Over-permissioning**: Granular scope enforcement.
+- **Secrets Leakage**: **Active Secret Redaction** automatically scrubs secrets from logs and console output.
+- **Runaway Agents**: **Emergency Lockdown** ("Panic Button") instantly kills all containers and blocks execution.
+- **Over-permissioning**: Granular OPA-based scope enforcement.
 
 We currently **do not** protect against:
 
-- Kernel-level exploits (without gVisor enabled).
 - Physical access to the host machine.
 - Compromised host OS user account (if `rootless` docker is not used).
 
 ## Security Audits
 
-No third-party audits have been performed on v0.1 yet. Use at your own risk in production environments.
+No third-party audits have been performed yet. Use at your own risk in production environments.

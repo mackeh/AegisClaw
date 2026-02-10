@@ -49,7 +49,7 @@ AegisClaw is the **runtime** and **security envelope** that makes these failures
 
 ### Prompt & data safety
 - **Prompt guardrails**: pluggable (NeMo Guardrails, OpenAI/Anthropic moderation hooks, custom regex/rules).
-- **Sensitive-data redaction**: prevent secrets/PII from leaving the boundary unintentionally.
+- **Active Secret Redaction**: automatically scrubs secrets from logs and console output if they leak.
 - **Context firewall**: blocks untrusted channels from overwriting system/tool policy.
 
 ### Secrets & configuration
@@ -63,11 +63,12 @@ AegisClaw is the **runtime** and **security envelope** that makes these failures
 
 ### Governance, policy, audit
 - **Policy engine**: OPA/Rego policies for tools/actions/scopes (local-first).
-- **Audit log**: append-only, tamper-evident log of tool calls and approvals.
-- **Observability**: OpenTelemetry traces/metrics + simple dashboard.
+- **Audit log**: append-only, tamper-evident log with cryptographic verification.
+- **Observability**: OpenTelemetry tracing + Prometheus metrics + live dashboard.
 
 ### Developer experience
 - **CLI**: `aegisclaw` for setup, migration, skill management, policy editing, log review.
+- **Web Dashboard**: Modern GUI for monitoring skills, logs, and system status.
 - **Skill SDK**: typed contracts, scope declarations, test harness, local mocking.
 
 ---
@@ -176,7 +177,7 @@ Example policy idea (conceptual):
 
 ## Roadmap
 
-### v0.1 (MVP)
+### v0.1.x (Foundations)
 - CLI: init/run/logs/policy
 - Docker sandbox with hardened defaults
 - scope model + approval UI (TUI or local web UI)
@@ -184,16 +185,23 @@ Example policy idea (conceptual):
 - audit log + basic telemetry
 - OpenClaw-compatible skill wrapper layer
 
-### v0.2
+### v0.2.x (Policy & Runtimes)
 - OPA policy engine integration
+- gVisor (`sandbox_runtime`) support
 - cosign signature verification for skills
+
+### v0.3.x (Observability & UX)
+- Modern Web Dashboard
+- Real-time Terminal Streaming
+- Prometheus Metrics & OpenTelemetry Tracing
+- Active Secret Redaction
+- Emergency Lockdown (Panic Button)
+
+### Upcoming
+- `docker-compose` support for easy multi-container setups
 - SBOM + provenance attestation
 - safe browser tool (headless) in sandbox
-
-### v0.3+
-- gVisor/bwrap/Firecracker support
 - enterprise modes (SSO, DLP hooks, centralized policy)
-- multi-agent profiles and “workspaces”
 
 ---
 
