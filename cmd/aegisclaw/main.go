@@ -11,9 +11,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/agent"
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
-	"github.com/mackeh/AegisClaw/internal/policy"
 	"github.com/mackeh/AegisClaw/internal/sandbox"
-	"github.com/mackeh/AegisClaw/internal/scope"
 	"github.com/mackeh/AegisClaw/internal/secrets"
 	"github.com/mackeh/AegisClaw/internal/server"
 	"github.com/mackeh/AegisClaw/internal/skill"
@@ -153,30 +151,25 @@ func policyCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List current policy rules",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			p, err := policy.LoadDefaultPolicy()
+			cfgDir, err := config.DefaultConfigDir()
 			if err != nil {
-				return fmt.Errorf("failed to load policy: %w", err)
+				return err
 			}
+			policyPath := filepath.Join(cfgDir, "policy.rego")
 
-			fmt.Printf("📋 Policy Version: %s\n", p.Version)
-			fmt.Println("Rules:")
-			for _, rule := range p.Rules {
-				// Parse scope to get risk level
-				s, _ := scope.Parse(rule.Scope)
-
-				fmt.Printf("  • %-15s → %s (%s %s)\n",
-					rule.Scope,
-					rule.Decision,
-					s.RiskLevel.Emoji(),
-					s.RiskLevel.String(),
-				)
-
-				if len(rule.Constraints) > 0 {
-					for k, v := range rule.Constraints {
-						fmt.Printf("    └─ %s: %v\n", k, v)
-					}
+			data, err := os.ReadFile(policyPath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					fmt.Println("⚠️  No policy file found at", policyPath)
+					return nil
 				}
+				return fmt.Errorf("failed to read policy file: %w", err)
 			}
+
+			fmt.Printf("📋 Policy File: %s\n", policyPath)
+			fmt.Println("---")
+			fmt.Println(string(data))
+			fmt.Println("---")
 			return nil
 		},
 	})

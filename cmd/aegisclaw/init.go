@@ -71,44 +71,26 @@ func runInit() error {
 	}
 
 	// Create default policy
-	policyPath := filepath.Join(configDir, "policy.yaml")
+	policyPath := filepath.Join(configDir, "policy.rego")
 	if _, err := os.Stat(policyPath); os.IsNotExist(err) {
-		defaultPolicy := `# AegisClaw Security Policy
-version: "0.1"
+		defaultPolicy := `package aegisclaw.policy
 
-rules:
-  # Critical: Always require approval
-  - scope: "shell.exec"
-    decision: require_approval
-    risk: critical
+import rego.v1
 
-  # High: Require approval by default
-  - scope: "files.write"
-    decision: require_approval
-    risk: high
+# Default: require approval for everything
+default decision = "require_approval"
 
-  - scope: "email.send"
-    decision: require_approval
-    risk: high
+# Example: Allow reading files in specific directory
+# decision = "allow" if {
+# 	input.scope.name == "files.read"
+# 	startswith(input.scope.resource, "/home/user/workspace")
+# }
 
-  - scope: "secrets.access"
-    decision: require_approval
-    risk: high
-
-  # Medium: Allow with constraints
-  - scope: "http.request"
-    decision: allow
-    risk: medium
-    constraints:
-      domains: []  # Add allowed domains
-
-  # Low: Allow by default
-  - scope: "files.read"
-    decision: allow
-    risk: low
-    constraints:
-      paths:
-        - "${HOME}/workspace"
+# Example: Allow specific HTTP domains
+# decision = "allow" if {
+# 	input.scope.name == "http.request"
+# 	input.scope.resource == "api.github.com"
+# }
 `
 		if err := os.WriteFile(policyPath, []byte(defaultPolicy), 0600); err != nil {
 			return fmt.Errorf("failed to write policy: %w", err)

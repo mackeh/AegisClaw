@@ -56,12 +56,15 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 	}
 
 	// 3. Load Policy & Evaluate
-	p, err := policy.LoadDefaultPolicy()
+	engine, err := policy.LoadDefaultPolicy(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load policy: %w", err)
 	}
-	engine := policy.NewEngine(p)
-	decision, riskyScopes := engine.EvaluateRequest(req)
+	
+	decision, riskyScopes, err := engine.EvaluateRequest(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("policy evaluation failed: %w", err)
+	}
 
 	finalDecision := "deny"
 

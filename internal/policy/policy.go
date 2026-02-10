@@ -1,13 +1,14 @@
-// Package policy implements the security policy engine for AegisClaw.
+// Package policy implements the security policy engine for AegisClaw using OPA/Rego.
 package policy
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/mackeh/AegisClaw/internal/scope"
-	"gopkg.in/yaml.v3"
+	"github.com/open-policy-agent/opa/rego"
 )
 
 // Decision represents the outcome of a policy evaluation
@@ -32,132 +33,108 @@ func (d Decision) String() string {
 	}
 }
 
-// Rule represents a single policy rule
-type Rule struct {
-	Scope       string            `yaml:"scope"`
-	Decision    string            `yaml:"decision"`
-	Risk        string            `yaml:"risk"`
-	Constraints map[string]any    `yaml:"constraints,omitempty"`
-}
-
-// Policy represents the complete security policy
-type Policy struct {
-	Version string `yaml:"version"`
-	Rules   []Rule `yaml:"rules"`
-}
-
-// Engine evaluates policy rules against scope requests
+// Engine evaluates policy rules against scope requests using OPA
 type Engine struct {
-	policy *Policy
+	query rego.PreparedEvalQuery
 }
 
-// NewEngine creates a new policy engine with the given policy
-func NewEngine(policy *Policy) *Engine {
-	return &Engine{policy: policy}
+// NewEngine creates a new policy engine from a Rego policy string
+func NewEngine(ctx context.Context, policyContent string) (*Engine, error) {
+	r := rego.New(
+		rego.Query("data.aegisclaw.policy.decision"),
+		rego.Module("policy.rego", policyContent),
+	)
+
+	query, err := r.PrepareForEval(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare rego query: %w", err)
+	}
+
+	return &Engine{query: query}, nil
 }
 
-// LoadPolicy loads a policy from the specified path
-func LoadPolicy(path string) (*Policy, error) {
+// LoadPolicy loads a policy from the specified path (rego file)
+func LoadPolicy(ctx context.Context, path string) (*Engine, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read policy file: %w", err)
 	}
-
-	var policy Policy
-	if err := yaml.Unmarshal(data, &policy); err != nil {
-		return nil, fmt.Errorf("failed to parse policy: %w", err)
-	}
-
-	return &policy, nil
+	return NewEngine(ctx, string(data))
 }
 
 // LoadDefaultPolicy loads the policy from the default config directory
-func LoadDefaultPolicy() (*Policy, error) {
+func LoadDefaultPolicy(ctx context.Context) (*Engine, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	return LoadPolicy(filepath.Join(home, ".aegisclaw", "policy.yaml"))
+	// Try loading policy.rego
+	path := filepath.Join(home, ".aegisclaw", "policy.rego")
+	if _, err := os.Stat(path); err == nil {
+		return LoadPolicy(ctx, path)
+	}
+	
+	// Fallback to a safe default if file not found (or could embed default policy)
+	defaultPolicy := `
+package aegisclaw.policy
+import rego.v1
+default decision = "require_approval"
+`
+	return NewEngine(ctx, defaultPolicy)
 }
 
 // Evaluate checks a scope request against the policy and returns a decision
-func (e *Engine) Evaluate(s scope.Scope) (Decision, *Rule) {
-	// Find matching rule
-	for _, rule := range e.policy.Rules {
-		if rule.Scope == s.Name {
-			// Check constraints if present
-			if len(rule.Constraints) > 0 {
-				if !checkConstraints(s, rule.Constraints) {
-					// Constraints failed - stricter decision needed
-					// For now, fall back to RequireApproval if constraints fail
-					return RequireApproval, &rule
-				}
-			}
-			return parseDecision(rule.Decision), &rule
-		}
+func (e *Engine) Evaluate(ctx context.Context, s scope.Scope) (Decision, error) {
+	input := map[string]interface{}{
+		"scope": map[string]interface{}{
+			"name":     s.Name,
+			"resource": s.Resource,
+			"risk":     s.RiskLevel.String(),
+		},
 	}
 
-	// Default: require approval for unknown scopes
-	return RequireApproval, nil
-}
-
-func checkConstraints(s scope.Scope, constraints map[string]any) bool {
-	// Simple path prefix check for file scopes
-	if paths, ok := constraints["paths"].([]interface{}); ok {
-		// If paths are defined, resource MUST match one of them
-		matched := false
-		for _, p := range paths {
-			if pathStr, ok := p.(string); ok {
-				// Simple prefix match for now. In production, use filepath.Clean/Rel
-				if s.Resource != "" && len(s.Resource) >= len(pathStr) && s.Resource[:len(pathStr)] == pathStr {
-					matched = true
-					break
-				}
-			}
-		}
-		if !matched {
-			return false
-		}
+	results, err := e.query.Eval(ctx, rego.EvalInput(input))
+	if err != nil {
+		return RequireApproval, err
 	}
 
-	// Simple domain check for network scopes
-	if domains, ok := constraints["domains"].([]interface{}); ok {
-		matched := false
-		for _, d := range domains {
-			if domainStr, ok := d.(string); ok {
-				if s.Resource != "" && s.Resource == domainStr {
-					matched = true
-					break
-				}
-			}
-		}
-		if !matched {
-			return false
-		}
+	if len(results) == 0 || len(results[0].Expressions) == 0 {
+		// No decision matched, return safe default
+		return RequireApproval, nil
 	}
 
-	return true
+	decisionStr, ok := results[0].Expressions[0].Value.(string)
+	if !ok {
+		return RequireApproval, fmt.Errorf("policy returned non-string decision")
+	}
+
+	return parseDecision(decisionStr), nil
 }
 
 // EvaluateRequest evaluates all scopes in a request
-func (e *Engine) EvaluateRequest(req scope.ScopeRequest) (Decision, []scope.Scope) {
+func (e *Engine) EvaluateRequest(ctx context.Context, req scope.ScopeRequest) (Decision, []scope.Scope, error) {
 	requiresApproval := []scope.Scope{}
 	
 	for _, s := range req.Scopes {
-		decision, _ := e.Evaluate(s)
+		decision, err := e.Evaluate(ctx, s)
+		if err != nil {
+			// Fail secure on error
+			return RequireApproval, []scope.Scope{s}, err
+		}
+		
 		switch decision {
 		case Deny:
-			return Deny, []scope.Scope{s}
+			return Deny, []scope.Scope{s}, nil
 		case RequireApproval:
 			requiresApproval = append(requiresApproval, s)
 		}
 	}
 
 	if len(requiresApproval) > 0 {
-		return RequireApproval, requiresApproval
+		return RequireApproval, requiresApproval, nil
 	}
 
-	return Allow, nil
+	return Allow, nil, nil
 }
 
 func parseDecision(s string) Decision {
