@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/mackeh/AegisClaw/internal/approval"
@@ -16,6 +17,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/sandbox"
 	"github.com/mackeh/AegisClaw/internal/scope"
 	"github.com/mackeh/AegisClaw/internal/secrets"
+	"github.com/mackeh/AegisClaw/internal/security/redactor"
 	"github.com/mackeh/AegisClaw/internal/skill"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -149,6 +151,7 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 	env := append([]string{}, skillCmd.Env...)
 
 	// Inject Secrets if allowed
+	var activeSecrets []string
 	if finalDecision == "allow" {
 		secretsDir := filepath.Join(cfgDir, "secrets")
 		mgr := secrets.NewManager(secretsDir)
@@ -158,12 +161,16 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 				val, err := mgr.Get(s.Resource)
 				if err == nil {
 					env = append(env, fmt.Sprintf("%s=%s", s.Resource, val))
+					activeSecrets = append(activeSecrets, val)
 				} else {
 					fmt.Printf("⚠️  Warning: Secret '%s' requested but not found.\n", s.Resource)
 				}
 			}
 		}
 	}
+
+	// Initialize Redactor
+	scrubber := redactor.New(activeSecrets...)
 
 	// 7. Execute
 	fmt.Printf("🚀 Running skill: %s\n", m.Name)
@@ -200,13 +207,29 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
 
-	// We still stream to console for better visibility during 'run' or manual CLI use
-	stdoutTee := io.TeeReader(result.Stdout, stdoutBuf)
-	stderrTee := io.TeeReader(result.Stderr, stderrBuf)
+	// Stream to both console and buffer, but REDACT first.
+	// We create a redacting writer that writes to a MultiWriter (Console + Buffer)
+	stdoutTarget := io.MultiWriter(os.Stdout, stdoutBuf)
+	stderrTarget := io.MultiWriter(os.Stderr, stderrBuf)
 
-	io.Copy(os.Stdout, stdoutTee)
-	io.Copy(os.Stderr, stderrTee)
+	safeStdout := redactor.NewRedactingWriter(stdoutTarget, scrubber)
+	safeStderr := redactor.NewRedactingWriter(stderrTarget, scrubber)
 
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		io.Copy(safeStdout, result.Stdout)
+	}()
+	
+	go func() {
+		defer wg.Done()
+		io.Copy(safeStderr, result.Stderr)
+	}()
+
+	wg.Wait()
+	
 	return &ExecutionResult{
 		ExitCode: result.ExitCode,
 		Stdout:   stdoutBuf.String(),

@@ -18,6 +18,7 @@ AegisClaw acts as a security envelope around your AI agents, providing sandboxin
 
 - **🐳 Hardened Sandbox**: Executes agent skills in a restricted Docker container (non-root, read-only rootfs, dropped capabilities, seccomp).
 - **🛡️ Granular Scopes**: Permission model (e.g., `files.read:/home/user/docs`, `shell.exec`, `net.outbound:github.com`).
+- **🚫 Active Secret Redaction**: Automatically scrubs secrets from logs and console output if they leak.
 - **✋ Human-in-the-Loop**: TUI-based approval system for high-risk actions.
 - **🔐 Secret Encryption**: `age`-based encryption for sensitive API keys.
 - **📜 Audit Logging**: Tamper-evident, hash-chained logs of all agent actions.
