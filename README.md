@@ -177,23 +177,19 @@ Troubleshooting
 
 ### Completed
 
-- [x] **v0.1.0-0.1.7 (Foundations)**: CLI, Policy Engine, TUI Approval, Hardened Docker, `age` Secrets, Audit Logging, OpenClaw Adapter.
-- [x] **v0.1.8 (Egress Control)**: Integrated egress filtering proxy with audit trails.
-- [x] **v0.1.9 (Signed Skills)**: Ed25519 signature verification and registry search/add.
-- [x] **Web Dashboard**: Modern, dark-mode GUI with Live Terminal Streaming, Skill Store, and Audit Verification.
+- [x] **v0.1.x (Foundations)**: CLI, Policy Engine, TUI Approval, Hardened Docker, `age` Secrets, Audit Logging, OpenClaw Adapter, Egress Proxy, Signed Skills.
+- [x] **v0.2.x (Policy & Runtimes)**: OPA (Rego) policy engine integration, gVisor (`sandbox_runtime`) support.
+- [x] **v0.3.x (Observability & UX)**: Modern Web Dashboard, Real-time Terminal Streaming, Prometheus Metrics, OpenTelemetry Tracing, Active Secret Redaction, Emergency Lockdown (Panic Button).
 
-### Upcoming (v0.2+)
+### Upcoming
 
-- [x] **Policy Engine**: OPA (Rego) policy engine integration.
-- [ ] **Advanced Runtimes**: `docker-compose` support for easy multi-container setups. support for gVisor (added `sandbox_runtime` config), Kata Containers, or Nix/bubblewrap for advanced users.
+- [ ] **Advanced Runtimes**: `docker-compose` support for easy multi-container setups; support for Kata Containers, Firecracker, or Nix/bubblewrap.
 - [ ] **Safety Layer**: NeMo Guardrails integration for LLM prompt protection and custom execution rails.
 - [ ] **Secret Brokering**: `sops` integration; pluggable support for HashiCorp Vault, Infisical, and Bitwarden.
 - [ ] **Auth & Privacy**: Tailscale/WireGuard integration for private access; Authelia/Keycloak for web UI identity.
-- [x] **Observability**: OpenTelemetry tracing and Prometheus metrics with live dashboard.
 - [ ] **Skills Ecosystem**: Git-based skill distribution with enhanced hash-chained provenance.
 
 ## 🤝 Contributing
-
 We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
 
 - [Bug Report](.github/ISSUE_TEMPLATE/bug_report.md)
