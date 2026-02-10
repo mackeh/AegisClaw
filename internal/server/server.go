@@ -50,6 +50,7 @@ func (s *Server) Start() error {
 	// API
 	http.HandleFunc("/api/skills", s.handleListSkills)
 	http.HandleFunc("/api/logs", s.handleListLogs)
+	http.HandleFunc("/api/logs/verify", s.handleVerifyLogs)
 	http.HandleFunc("/api/registry/search", s.handleRegistrySearch)
 	http.HandleFunc("/api/registry/install", s.handleRegistryInstall)
 	http.HandleFunc("/execute", s.handleExecute)
@@ -97,6 +98,29 @@ func (s *Server) handleListLogs(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(entries)
 }
 
+
+func (s *Server) handleVerifyLogs(w http.ResponseWriter, r *http.Request) {
+	cfgDir, _ := config.DefaultConfigDir()
+	logPath := filepath.Join(cfgDir, "audit", "audit.log")
+	
+	valid, err := audit.Verify(logPath)
+	
+	status := "valid"
+	message := "Audit log integrity verified (hash chain is unbroken)."
+	if err != nil {
+		status = "error"
+		message = err.Error()
+	} else if !valid {
+		status = "invalid"
+		message = "Audit log integrity check failed."
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  status,
+		"message": message,
+	})
+}
 
 func (s *Server) handleRegistrySearch(w http.ResponseWriter, r *http.Request) {
 	cfg, err := config.LoadDefault()

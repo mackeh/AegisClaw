@@ -21,7 +21,7 @@ AegisClaw acts as a security envelope around your AI agents, providing sandboxin
 - **🚫 Active Secret Redaction**: Automatically scrubs secrets from logs and console output if they leak.
 - **✋ Human-in-the-Loop**: TUI-based approval system for high-risk actions.
 - **🔐 Secret Encryption**: `age`-based encryption for sensitive API keys.
-- **📜 Audit Logging**: Tamper-evident, hash-chained logs of all agent actions.
+- **📜 Audit Logging**: Tamper-evident, hash-chained logs with cryptographic verification (GUI + CLI).
 
 ## 📦 Installation
 
