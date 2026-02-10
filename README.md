@@ -100,8 +100,34 @@ Check the immutable log of actions:
 ./aegisclaw logs verify  # Check cryptographic integrity
 ```
 
-## 🔗 OpenClaw Integration
+## 🖥️ Web GUI Guide
 
+AegisClaw includes a modern web-based dashboard for easy monitoring and management.
+
+### 1. Launch the Dashboard
+
+Start the AegisClaw API and UI server:
+
+```bash
+./aegisclaw serve --port 8080
+```
+
+Then, open your browser and navigate to `http://localhost:8080`.
+
+### 2. Dashboard Features
+
+- **System Overview**: Monitor system status, total executions, and the active policy mode (OPA/Rego).
+- **Skill Management**:
+    - **Installed Skills**: View all locally available skills and run them with a single click.
+    - **Skill Store**: Search the remote registry for new skills and install them directly from the UI.
+- **Live Monitoring**:
+    - **Real-time Terminal**: When running a skill, a live terminal pops up showing real-time logs with active secret redaction.
+    - **Audit Activity**: View the most recent actions taken by your agents.
+- **Security Tools**:
+    - **Log Verification**: Click "Verify Integrity" in the audit section to cryptographically prove the logs haven't been tampered with.
+    - **Emergency Stop**: The prominent red **EMERGENCY STOP** button instantly kills all running skill containers and locks the runtime.
+
+## 🔗 OpenClaw Integration
 This section shows how to integrate OpenClaw agents with AegisClaw while preserving AegisClaw's security guarantees (sandboxing, scoped permissions, audit logging).
 
 Prerequisites
