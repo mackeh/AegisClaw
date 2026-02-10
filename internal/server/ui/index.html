@@ -38,7 +38,13 @@
                 </div>
             </div>
             <div class="flex items-center space-x-4">
-                <span class="px-3 py-1 bg-green-900 text-green-300 rounded-full text-sm font-medium">● Online</span>
+                <button id="unlock-btn" onclick="unlockSystem()" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold border border-slate-500 animate-pulse">
+                    🔓 UNLOCK
+                </button>
+                <button id="lockdown-btn" onclick="lockdownSystem()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-bold shadow-lg border border-red-500 transition-all active:scale-95">
+                    🛑 EMERGENCY STOP
+                </button>
+                <span class="px-3 py-1 bg-green-900 text-green-300 rounded-full text-sm font-medium" id="status-badge">● Online</span>
                 <span class="text-sm text-slate-500">v0.2.0</span>
             </div>
         </header>
@@ -354,7 +360,60 @@
             }
         }
 
+        async function lockdownSystem() {
+            if (!confirm("⚠️ EMERGENCY LOCKDOWN\n\nThis will STOP all running skills and BLOCK new executions.\nAre you sure?")) return;
+            try {
+                await fetch('/api/system/lockdown', {method: 'POST'});
+                updateSystemState('lockdown');
+            } catch (e) { alert(e); }
+        }
+
+        async function unlockSystem() {
+            if (!confirm("Restore system functionality?")) return;
+            try {
+                await fetch('/api/system/unlock', {method: 'POST'});
+                updateSystemState('active');
+            } catch (e) { alert(e); }
+        }
+
+        async function checkStatus() {
+            try {
+                const res = await fetch('/api/system/status');
+                const data = await res.json();
+                updateSystemState(data.status);
+            } catch(e) {}
+        }
+
+        function updateSystemState(status) {
+            const body = document.body;
+            const badge = document.getElementById('status-badge');
+            const lockBtn = document.getElementById('lockdown-btn');
+            const unlockBtn = document.getElementById('unlock-btn');
+
+            if (status === 'lockdown') {
+                body.classList.add('bg-red-900');
+                body.classList.remove('bg-slate-900'); // Assuming default is dark
+                // Override background style set in CSS
+                body.style.backgroundColor = '#450a0a'; 
+                
+                badge.innerText = '● LOCKDOWN';
+                badge.className = 'px-3 py-1 bg-red-950 text-red-200 rounded-full text-sm font-bold border border-red-500 animate-pulse';
+                
+                lockBtn.classList.add('hidden');
+                unlockBtn.classList.remove('hidden');
+            } else {
+                body.style.backgroundColor = '#0f172a';
+                
+                badge.innerText = '● Online';
+                badge.className = 'px-3 py-1 bg-green-900 text-green-300 rounded-full text-sm font-medium';
+                
+                lockBtn.classList.remove('hidden');
+                unlockBtn.classList.add('hidden');
+            }
+        }
+
         // Initial Load
+        checkStatus();
         fetchSkills();
         fetchLogs();
         fetchMetrics();
@@ -362,6 +421,7 @@
         // Refresh every 5s
         setInterval(fetchLogs, 5000);
         setInterval(fetchMetrics, 5000);
+        setInterval(checkStatus, 2000);
     </script>
 </body>
 </html>

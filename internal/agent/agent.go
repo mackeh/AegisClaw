@@ -19,6 +19,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/secrets"
 	"github.com/mackeh/AegisClaw/internal/security/redactor"
 	"github.com/mackeh/AegisClaw/internal/skill"
+	"github.com/mackeh/AegisClaw/internal/system"
 	"github.com/mackeh/AegisClaw/internal/telemetry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -38,6 +39,10 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 
 // ExecuteSkillWithStream handles execution with optional real-time streaming
 func ExecuteSkillWithStream(ctx context.Context, m *skill.Manifest, cmdName string, userArgs []string, stdoutStream, stderrStream io.Writer) (*ExecutionResult, error) {
+	if system.IsLockedDown() {
+		return nil, fmt.Errorf("SECURITY LOCKDOWN: Agent is in emergency stop mode")
+	}
+
 	tr := otel.Tracer("agent")
 	ctx, span := tr.Start(ctx, "ExecuteSkill")
 	defer span.End()

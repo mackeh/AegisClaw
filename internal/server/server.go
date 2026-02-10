@@ -10,8 +10,10 @@ import (
 	"github.com/mackeh/AegisClaw/internal/agent"
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
+	"github.com/mackeh/AegisClaw/internal/sandbox"
 	"github.com/mackeh/AegisClaw/internal/server/ui"
 	"github.com/mackeh/AegisClaw/internal/skill"
+	"github.com/mackeh/AegisClaw/internal/system"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -53,6 +55,9 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/logs", s.handleListLogs)
 	http.HandleFunc("/api/metrics", promhttp.Handler().ServeHTTP)
 	http.HandleFunc("/api/logs/verify", s.handleVerifyLogs)
+	http.HandleFunc("/api/system/lockdown", s.handleSystemLockdown)
+	http.HandleFunc("/api/system/unlock", s.handleSystemUnlock)
+	http.HandleFunc("/api/system/status", s.handleSystemStatus)
 	http.HandleFunc("/api/registry/search", s.handleRegistrySearch)
 	http.HandleFunc("/api/registry/install", s.handleRegistryInstall)
 	http.HandleFunc("/api/execute/stream", s.handleExecuteStream)
@@ -101,6 +106,46 @@ func (s *Server) handleListLogs(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(entries)
 }
 
+
+func (s *Server) handleSystemStatus(w http.ResponseWriter, r *http.Request) {
+	status := "active"
+	if system.IsLockedDown() {
+		status = "lockdown"
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": status})
+}
+
+func (s *Server) handleSystemLockdown(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	fmt.Println("🚨 EMERGENCY LOCKDOWN TRIGGERED!")
+	system.Lockdown()
+
+	// Kill all containers
+	exec, err := sandbox.NewDockerExecutor()
+	if err == nil {
+		go exec.KillAll(r.Context()) // Run in background to not block response
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"lockdown"}`))
+}
+
+func (s *Server) handleSystemUnlock(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	system.Unlock()
+	fmt.Println("✅ System Unlocked.")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"active"}`))
+}
 
 func (s *Server) handleVerifyLogs(w http.ResponseWriter, r *http.Request) {
 	cfgDir, _ := config.DefaultConfigDir()

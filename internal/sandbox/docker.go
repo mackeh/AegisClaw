@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
@@ -150,6 +151,9 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 		AttachStdout: true,
 		AttachStderr: true,
 		Tty:          false,
+		Labels: map[string]string{
+			"managed_by": "aegisclaw",
+		},
 	}
 
 	resp, err := e.cli.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, nil, "")
@@ -204,6 +208,26 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 		_ = e.cli.ContainerKill(ctx, containerID, "SIGKILL")
 		return nil, ctx.Err()
 	}
+}
+
+// KillAll force-stops and removes all containers managed by AegisClaw
+func (e *DockerExecutor) KillAll(ctx context.Context) error {
+	filters := filters.NewArgs()
+	filters.Add("label", "managed_by=aegisclaw")
+
+	containers, err := e.cli.ContainerList(ctx, container.ListOptions{All: true, Filters: filters})
+	if err != nil {
+		return fmt.Errorf("failed to list containers: %w", err)
+	}
+
+	for _, c := range containers {
+		fmt.Printf("🛑 Killing container %s (%s)...\n", c.ID[:12], c.Image)
+		// Force remove (kills if running)
+		if err := e.cli.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true}); err != nil {
+			fmt.Printf("⚠️ Failed to remove container %s: %v\n", c.ID[:12], err)
+		}
+	}
+	return nil
 }
 
 // Cleanup is a no-op for now as we remove containers after run
