@@ -53,6 +53,7 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/logs/verify", s.handleVerifyLogs)
 	http.HandleFunc("/api/registry/search", s.handleRegistrySearch)
 	http.HandleFunc("/api/registry/install", s.handleRegistryInstall)
+	http.HandleFunc("/api/execute/stream", s.handleExecuteStream)
 	http.HandleFunc("/execute", s.handleExecute)
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -190,6 +191,86 @@ func (s *Server) handleRegistryInstall(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"ok"}`))
+}
+
+func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Flush headers immediately
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		return
+	}
+	flusher.Flush()
+
+	skillName := r.URL.Query().Get("skill")
+	cmdName := r.URL.Query().Get("command")
+	// For simplicity, args are not parsed from query yet, assuming no args or simple string split if needed
+	// Better way: accept POST with JSON body for args, but EventSource implies GET.
+	// We'll stick to basic no-args for "Whoo" demo or simple query param
+	
+	if skillName == "" || cmdName == "" {
+		fmt.Fprintf(w, "event: error\ndata: Missing skill or command\n\n")
+		return
+	}
+
+	// 1. Find manifest
+	cfgDir, _ := config.DefaultConfigDir()
+	searchDirs := []string{filepath.Join(cfgDir, "skills"), "skills"}
+	var m *skill.Manifest
+	for _, dir := range searchDirs {
+		manifestPath := filepath.Join(dir, skillName, "skill.yaml")
+		found, err := skill.LoadManifest(manifestPath)
+		if err == nil {
+			m = found
+			break
+		}
+	}
+
+	if m == nil {
+		fmt.Fprintf(w, "event: error\ndata: Skill not found\n\n")
+		return
+	}
+
+	// 2. Prepare Writers
+	sseWriter := &SSEWriter{w: w, f: flusher}
+
+	// 3. Execute
+	_, err := agent.ExecuteSkillWithStream(r.Context(), m, cmdName, []string{}, sseWriter, sseWriter)
+	
+	if err != nil {
+		fmt.Fprintf(w, "event: error\ndata: %s\n\n", err.Error())
+	} else {
+		fmt.Fprintf(w, "event: done\ndata: Execution complete\n\n")
+	}
+	flusher.Flush()
+}
+
+type SSEWriter struct {
+	w http.ResponseWriter
+	f http.Flusher
+}
+
+func (s *SSEWriter) Write(p []byte) (n int, err error) {
+	// SSE format: data: <content>\n\n
+	// We need to be careful with newlines. 
+	// Simple approach: write line by line or raw chunk.
+	// Raw chunk is better for terminal stream, client handles buffering.
+	// We'll treat the payload as raw data.
+	
+	// Escape newlines for SSE data field if necessary, or just send raw lines.
+	// Actually, for a terminal stream, it's easier to send JSON chunks or just raw lines prefixed with data:
+	
+	// Let's send it as a JSON object to handle special chars safely
+	payload, _ := json.Marshal(string(p))
+	fmt.Fprintf(s.w, "data: %s\n\n", payload)
+	s.f.Flush()
+	return len(p), nil
 }
 
 func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {

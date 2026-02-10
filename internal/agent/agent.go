@@ -30,8 +30,13 @@ type ExecutionResult struct {
 	Stderr   string
 }
 
-// ExecuteSkill handles the end-to-end execution of a skill command
+// ExecuteSkill is a wrapper for ExecuteSkillWithStream using default outputs
 func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userArgs []string) (*ExecutionResult, error) {
+	return ExecuteSkillWithStream(ctx, m, cmdName, userArgs, nil, nil)
+}
+
+// ExecuteSkillWithStream handles execution with optional real-time streaming
+func ExecuteSkillWithStream(ctx context.Context, m *skill.Manifest, cmdName string, userArgs []string, stdoutStream, stderrStream io.Writer) (*ExecutionResult, error) {
 	tr := otel.Tracer("agent")
 	ctx, span := tr.Start(ctx, "ExecuteSkill")
 	defer span.End()
@@ -207,10 +212,19 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
 
-	// Stream to both console and buffer, but REDACT first.
-	// We create a redacting writer that writes to a MultiWriter (Console + Buffer)
-	stdoutTarget := io.MultiWriter(os.Stdout, stdoutBuf)
-	stderrTarget := io.MultiWriter(os.Stderr, stderrBuf)
+	// Stream to console, buffer, and optional streams, but REDACT first.
+	stdoutWriters := []io.Writer{os.Stdout, stdoutBuf}
+	if stdoutStream != nil {
+		stdoutWriters = append(stdoutWriters, stdoutStream)
+	}
+	
+	stderrWriters := []io.Writer{os.Stderr, stderrBuf}
+	if stderrStream != nil {
+		stderrWriters = append(stderrWriters, stderrStream)
+	}
+
+	stdoutTarget := io.MultiWriter(stdoutWriters...)
+	stderrTarget := io.MultiWriter(stderrWriters...)
 
 	safeStdout := redactor.NewRedactingWriter(stdoutTarget, scrubber)
 	safeStderr := redactor.NewRedactingWriter(stderrTarget, scrubber)

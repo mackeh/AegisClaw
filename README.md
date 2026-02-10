@@ -153,7 +153,7 @@ Troubleshooting
 - [x] **v0.1.0-0.1.7 (Foundations)**: CLI, Policy Engine, TUI Approval, Hardened Docker, `age` Secrets, Audit Logging, OpenClaw Adapter.
 - [x] **v0.1.8 (Egress Control)**: Integrated egress filtering proxy with audit trails.
 - [x] **v0.1.9 (Signed Skills)**: Ed25519 signature verification and registry search/add.
-- [x] **Web Dashboard**: Modern, dark-mode GUI for monitoring skills, logs, and installing new skills from registry.
+- [x] **Web Dashboard**: Modern, dark-mode GUI with Live Terminal Streaming, Skill Store, and Audit Verification.
 
 ### Upcoming (v0.2+)
 

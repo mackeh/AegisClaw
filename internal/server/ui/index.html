@@ -227,20 +227,77 @@
                 }
 
                 skills.forEach(skill => {
+                    // Extract first command name for the Run button (default action)
+                    const cmdName = Object.keys(skill.commands || {})[0] || 'run';
+                    
                     const item = document.createElement('div');
-                    item.className = 'p-3 bg-slate-800 rounded border border-slate-700 hover:border-blue-500 transition-colors cursor-pointer';
+                    item.className = 'p-3 bg-slate-800 rounded border border-slate-700 hover:border-blue-500 transition-colors flex justify-between items-start';
                     item.innerHTML = `
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="font-semibold text-blue-400">${skill.name}</span>
-                            <span class="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-400">v${skill.version}</span>
+                        <div>
+                            <div class="flex items-center space-x-2 mb-1">
+                                <span class="font-semibold text-blue-400">${skill.name}</span>
+                                <span class="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-400">v${skill.version}</span>
+                            </div>
+                            <p class="text-xs text-slate-400 truncate w-48">${skill.description || 'No description'}</p>
                         </div>
-                        <p class="text-xs text-slate-400 truncate">${skill.description || 'No description'}</p>
+                        <button onclick="runSkill('${skill.name}', '${cmdName}')" class="text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded transition-colors flex items-center space-x-1">
+                            <span>▶</span> <span>Run</span>
+                        </button>
                     `;
                     list.appendChild(item);
                 });
             } catch (e) {
                 console.error("Failed to fetch skills", e);
             }
+        }
+
+        let eventSource = null;
+
+        function runSkill(skillName, cmdName) {
+            const modal = document.getElementById('terminal-modal');
+            const output = document.getElementById('term-output');
+            const title = document.getElementById('term-title');
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            output.innerText = '> Initializing secure sandbox...\n';
+            title.innerText = `Running: ${skillName} ${cmdName}`;
+
+            if (eventSource) eventSource.close();
+
+            const url = `/api/execute/stream?skill=${encodeURIComponent(skillName)}&command=${encodeURIComponent(cmdName)}`;
+            eventSource = new EventSource(url);
+
+            eventSource.onmessage = function(e) {
+                // Parse JSON data chunk
+                try {
+                    const chunk = JSON.parse(e.data);
+                    output.innerText += chunk;
+                    output.scrollTop = output.scrollHeight;
+                } catch (err) {
+                    output.innerText += e.data + '\n';
+                }
+            };
+
+            eventSource.addEventListener('done', function(e) {
+                output.innerText += '\n> [Execution Complete]';
+                eventSource.close();
+            });
+
+            eventSource.addEventListener('error', function(e) {
+                // Determine if it was a real error or just end of stream (browsers sometimes fire error on close)
+                if (e.data) {
+                    output.innerText += `\n> Error: ${e.data}`;
+                }
+                eventSource.close();
+            });
+        }
+
+        function closeTerminal() {
+            const modal = document.getElementById('terminal-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            if (eventSource) eventSource.close();
         }
 
         async function fetchLogs() {
