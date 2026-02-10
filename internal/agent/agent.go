@@ -17,6 +17,8 @@ import (
 	"github.com/mackeh/AegisClaw/internal/scope"
 	"github.com/mackeh/AegisClaw/internal/secrets"
 	"github.com/mackeh/AegisClaw/internal/skill"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // ExecutionResult holds the captured output of a skill run
@@ -28,6 +30,15 @@ type ExecutionResult struct {
 
 // ExecuteSkill handles the end-to-end execution of a skill command
 func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userArgs []string) (*ExecutionResult, error) {
+	tr := otel.Tracer("agent")
+	ctx, span := tr.Start(ctx, "ExecuteSkill")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("skill.name", m.Name),
+		attribute.String("skill.command", cmdName),
+	)
+
 	// 1. Find Command
 	skillCmd, ok := m.Commands[cmdName]
 	if !ok {

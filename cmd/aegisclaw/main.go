@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,12 +16,32 @@ import (
 	"github.com/mackeh/AegisClaw/internal/secrets"
 	"github.com/mackeh/AegisClaw/internal/server"
 	"github.com/mackeh/AegisClaw/internal/skill"
+	"github.com/mackeh/AegisClaw/internal/telemetry"
 	"github.com/spf13/cobra"
 )
 
 var version = "0.1.0-dev"
 
 func main() {
+	// Setup Telemetry
+	cfg, _ := config.LoadDefault()
+	var cleanup func(context.Context) error
+	
+	if cfg != nil && cfg.Telemetry.Enabled {
+		cfgDir, _ := config.DefaultConfigDir()
+		tracePath := filepath.Join(cfgDir, "traces.json")
+		f, err := os.OpenFile(tracePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err == nil {
+			// Intentionally ignoring error for now to keep CLI clean
+			cleanup, _ = telemetry.Setup(context.Background(), "aegisclaw", version, true, f)
+		} else {
+			cleanup, _ = telemetry.Setup(context.Background(), "aegisclaw", version, false, nil)
+		}
+	} else {
+		cleanup, _ = telemetry.Setup(context.Background(), "aegisclaw", version, false, nil)
+	}
+	defer cleanup(context.Background())
+
 	rootCmd := &cobra.Command{
 		Use:   "aegisclaw",
 		Short: "Secure-by-default runtime for AI agents",

@@ -16,6 +16,13 @@ type Config struct {
 	Security SecurityConfig `yaml:"security"`
 	Network  NetworkConfig  `yaml:"network"`
 	Registry RegistryConfig `yaml:"registry"`
+	Telemetry TelemetryConfig `yaml:"telemetry"`
+}
+
+// TelemetryConfig contains observability settings
+type TelemetryConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Exporter string `yaml:"exporter"` // e.g., "stdout", "otlp", "none"
 }
 
 // RegistryConfig contains skill registry settings

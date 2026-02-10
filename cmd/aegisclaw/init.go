@@ -25,6 +25,14 @@ type Config struct {
 		DefaultDeny bool     `yaml:"default_deny"`
 		Allowlist   []string `yaml:"allowlist"`
 	} `yaml:"network"`
+	Registry struct {
+		URL       string   `yaml:"url"`
+		TrustKeys []string `yaml:"trust_keys"`
+	} `yaml:"registry"`
+	Telemetry struct {
+		Enabled  bool   `yaml:"enabled"`
+		Exporter string `yaml:"exporter"`
+	} `yaml:"telemetry"`
 }
 
 func defaultConfig() *Config {
@@ -39,6 +47,8 @@ func defaultConfig() *Config {
 	cfg.Security.AuditEnabled = true
 	cfg.Network.DefaultDeny = true
 	cfg.Network.Allowlist = []string{}
+	cfg.Telemetry.Enabled = false // Disabled by default for CLI noise reduction
+	cfg.Telemetry.Exporter = "none"
 	return cfg
 }
 
