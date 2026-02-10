@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AegisClaw Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; }
+        .card { background-color: #1e293b; border-radius: 0.5rem; padding: 1.5rem; }
+    </style>
+</head>
+<body class="p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-8">
+            <div class="flex items-center space-x-4">
+                <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-2xl">🦅</div>
+                <div>
+                    <h1 class="text-3xl font-bold text-white">AegisClaw</h1>
+                    <p class="text-slate-400">Secure Agent Runtime</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="px-3 py-1 bg-green-900 text-green-300 rounded-full text-sm font-medium">● Online</span>
+                <span class="text-sm text-slate-500">v0.2.0</span>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="card">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider">Status</h3>
+                <div class="mt-2 flex items-baseline">
+                    <p class="text-3xl font-semibold text-white">Active</p>
+                </div>
+                <div class="mt-4 h-1 bg-green-500 rounded"></div>
+            </div>
+            <div class="card">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider">Installed Skills</h3>
+                <div class="mt-2 flex items-baseline">
+                    <p class="text-3xl font-semibold text-white" id="skill-count">-</p>
+                </div>
+                <div class="mt-4 h-1 bg-blue-500 rounded"></div>
+            </div>
+            <div class="card">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider">Policy Mode</h3>
+                <div class="mt-2 flex items-baseline">
+                    <p class="text-3xl font-semibold text-white">OPA/Rego</p>
+                </div>
+                <div class="mt-4 h-1 bg-purple-500 rounded"></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Skills -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="card">
+                    <h2 class="text-xl font-bold text-white mb-4">Installed Skills</h2>
+                    <div id="skills-list" class="space-y-3">
+                        <p class="text-slate-500">Loading skills...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Audit Log -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="card">
+                    <h2 class="text-xl font-bold text-white mb-4">Recent Audit Activity</h2>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-left text-sm">
+                            <thead class="text-slate-400 border-b border-slate-700">
+                                <tr>
+                                    <th class="pb-3 pl-2">Time</th>
+                                    <th class="pb-3">Action</th>
+                                    <th class="pb-3">Actor</th>
+                                    <th class="pb-3">Decision</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-log" class="divide-y divide-slate-700">
+                                <tr><td colspan="4" class="py-4 text-center text-slate-500">Loading logs...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchSkills() {
+            try {
+                const res = await fetch('/api/skills');
+                const skills = await res.json();
+                
+                document.getElementById('skill-count').innerText = skills.length;
+                
+                const list = document.getElementById('skills-list');
+                list.innerHTML = '';
+                
+                if (skills.length === 0) {
+                    list.innerHTML = '<p class="text-slate-500">No skills installed.</p>';
+                    return;
+                }
+
+                skills.forEach(skill => {
+                    const item = document.createElement('div');
+                    item.className = 'p-3 bg-slate-800 rounded border border-slate-700 hover:border-blue-500 transition-colors cursor-pointer';
+                    item.innerHTML = `
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-semibold text-blue-400">${skill.name}</span>
+                            <span class="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-400">v${skill.version}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 truncate">${skill.description || 'No description'}</p>
+                    `;
+                    list.appendChild(item);
+                });
+            } catch (e) {
+                console.error("Failed to fetch skills", e);
+            }
+        }
+
+        async function fetchLogs() {
+            try {
+                const res = await fetch('/api/logs');
+                const logs = await res.json();
+                
+                const tbody = document.getElementById('audit-log');
+                tbody.innerHTML = '';
+
+                if (logs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-slate-500">No activity logged.</td></tr>';
+                    return;
+                }
+
+                // Show last 10 logs
+                logs.reverse().slice(0, 10).forEach(log => {
+                    const row = document.createElement('tr');
+                    const decisionColor = log.decision === 'allow' ? 'text-green-400' : (log.decision === 'deny' ? 'text-red-400' : 'text-yellow-400');
+                    const time = new Date(log.timestamp).toLocaleTimeString();
+                    
+                    row.innerHTML = `
+                        <td class="py-3 pl-2 text-slate-400 font-mono text-xs">${time}</td>
+                        <td class="py-3 font-medium">${log.action}</td>
+                        <td class="py-3 text-slate-400">${log.actor}</td>
+                        <td class="py-3 ${decisionColor} font-bold uppercase text-xs">${log.decision}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (e) {
+                console.error("Failed to fetch logs", e);
+            }
+        }
+
+        // Initial Load
+        fetchSkills();
+        fetchLogs();
+
+        // Refresh every 5s
+        setInterval(fetchLogs, 5000);
+    </script>
+</body>
+</html>
