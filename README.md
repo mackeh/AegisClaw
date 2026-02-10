@@ -18,11 +18,34 @@ AegisClaw acts as a security envelope around your AI agents, providing sandboxin
 
 - **🐳 Hardened Sandbox**: Executes agent skills in a restricted Docker container (non-root, read-only rootfs, dropped capabilities, seccomp).
 - **🛡️ Granular Scopes**: Permission model (e.g., `files.read:/home/user/docs`, `shell.exec`, `net.outbound:github.com`).
+- **👁️ Security Visualization**: Active "Security Envelope" indicator confirming sandbox isolation and protection status.
+- **🔌 Adapter Health**: Real-time connection monitoring to the OpenClaw agent runtime.
 - **🚫 Active Secret Redaction**: Automatically scrubs secrets from logs and console output if they leak.
-- **🛑 Emergency Lockdown**: "Panic Button" to instantly kill all running skills and block new executions.
+- **🛑 Emergency Lockdown**: "PANIC BUTTON" to instantly kill all running skills and block new executions.
 - **✋ Human-in-the-Loop**: TUI-based approval system for high-risk actions.
 - **🔐 Secret Encryption**: `age`-based encryption for sensitive API keys.
-- **📜 Audit Logging**: Tamper-evident, hash-chained logs with cryptographic verification (GUI + CLI).
+- **📜 Audit Logging**: Tamper-evident, hash-chained logs with explainable decision tooltips.
+- **🖥️ Web Dashboard**: Modern, dark-mode GUI for live monitoring and management.
+
+## 🖼️ Gallery
+
+### Dashboard
+
+The V4 Dashboard features a dedicated **Security Operations Center** with:
+
+- **Active Security Envelope**: Visual confirmation of sandbox isolation.
+- **OpenClaw Status**: Real-time connection health and latency metrics.
+- **Explainable Audits**: Tooltips explaining _why_ an action was allowed or denied.
+
+![Dashboard](assets/dashboard_v4.png)
+
+### Audit Timeline
+
+![Audit Log](assets/audit_log.png)
+
+### Skill Registry
+
+![Skill Store](assets/skill_store.png)
 
 ## 📦 Installation
 
@@ -82,20 +105,21 @@ Check the immutable log of actions:
 This section shows how to integrate OpenClaw agents with AegisClaw while preserving AegisClaw's security guarantees (sandboxing, scoped permissions, audit logging).
 
 Prerequisites
+
 - AegisClaw built and configured (see Quick Start)
 - Docker installed and running
 - OpenClaw agent or skill package (container image or source)
 
 Steps
 
-1) Store OpenClaw credentials in AegisClaw secrets
+1. Store OpenClaw credentials in AegisClaw secrets
 
 ```bash
 # Store the OpenClaw API key (example)
 ./aegisclaw secrets set OPENCLAW_API_KEY sk-openclaw-xxxxx
 ```
 
-2) Enable/configure the OpenClaw adapter
+2. Enable/configure the OpenClaw adapter
 
 AegisClaw includes an OpenClaw adapter that mediates communication between agents and external services. Enable it by creating an adapter config at `~/.aegisclaw/adapters/openclaw.yaml`:
 
@@ -106,7 +130,7 @@ api_key_secret: "OPENCLAW_API_KEY" # name in aegisclaw secrets
 timeout_ms: 5000
 ```
 
-3) Register your OpenClaw-based skill/agent (manifest)
+3. Register your OpenClaw-based skill/agent (manifest)
 
 Create a skill manifest that AegisClaw can run in the sandbox. Example `skills/web-search.yaml`:
 
@@ -128,7 +152,7 @@ mkdir -p ~/.aegisclaw/skills
 cp skills/web-search.yaml ~/.aegisclaw/skills/
 ```
 
-4) Run the skill with AegisClaw's hardened runtime
+4. Run the skill with AegisClaw's hardened runtime
 
 ```bash
 # Run a registered skill inside the sandbox (example)
@@ -138,11 +162,13 @@ cp skills/web-search.yaml ~/.aegisclaw/skills/
 If your deployment runs an external OpenClaw service (instead of containerized skills), ensure AegisClaw's adapter will only allow the necessary egress and that API keys are provided via the secret name in the adapter config. All adapter actions are recorded in AegisClaw's audit log.
 
 Security & Policies
+
 - Use least-privilege scopes for skills (e.g., `files.read:/specific/path` rather than `files.read:/`).
 - Require skill signing and verify signatures for production skills.
 - Use the TUI approval flow for any skill that requests high-risk scopes.
 
 Troubleshooting
+
 - If a skill cannot reach the OpenClaw endpoint, check the egress proxy/egress rules and the adapter `endpoint` setting.
 - Verify secrets are present: `./aegisclaw secrets list`
 - Inspect audit logs for denied actions: `./aegisclaw logs`

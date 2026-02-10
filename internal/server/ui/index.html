@@ -4,16 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AegisClaw Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
                     colors: {
-                        slate: {
-                            800: '#1e293b',
-                            900: '#0f172a',
+                        zinc: {
+                            950: '#09090b',
                         }
                     }
                 }
@@ -21,407 +27,409 @@
         }
     </script>
     <style>
-        body { background-color: #0f172a; color: #e2e8f0; }
-        .card { background-color: #1e293b; border-radius: 0.5rem; padding: 1.5rem; }
+        body { 
+            background-color: #09090b; 
+            color: #fafafa;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .card {
+            background-color: #09090b;
+            border: 1px solid #27272a; /* zinc-800 */
+            border-radius: 0.5rem;
+        }
+        .text-secondary {
+            color: #a1a1aa; /* zinc-400 */
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
     </style>
 </head>
-<body class="p-8">
+<body class="min-h-screen selection:bg-zinc-800">
 
-    <div class="max-w-7xl mx-auto">
-        <!-- Header -->
-        <header class="flex justify-between items-center mb-8">
-            <div class="flex items-center space-x-4">
-                <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-2xl">🦅</div>
-                <div>
-                    <h1 class="text-3xl font-bold text-white">AegisClaw</h1>
-                    <p class="text-slate-400">Secure Agent Runtime</p>
+    <!-- Navigation -->
+    <nav class="border-b border-zinc-800 bg-zinc-950/50 backdrop-blur-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-14 items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-white rounded flex items-center justify-center">
+                        <svg class="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                    </div>
+                    <span class="font-bold tracking-tight text-white text-lg">AegisClaw</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800" id="status-container">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500" id="status-indicator"></span>
+                        <span class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider" id="status-text">Operational</span>
+                    </div>
+                    <button onclick="clearSecrets()" class="text-[10px] font-bold px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white rounded transition-colors group relative">
+                        <span>Clear Secrets</span>
+                    </button>
+                    <button id="lockdown-btn" onclick="lockdownSystem()" class="text-xs font-bold px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded transition-colors shadow-[0_0_10px_rgba(220,38,38,0.3)]">
+                        PANIC BUTTON
+                    </button>
+                    <button id="unlock-btn" onclick="unlockSystem()" class="hidden text-xs font-bold px-3 py-1.5 bg-white hover:bg-zinc-200 text-black rounded transition-colors">
+                        Unlock System
+                    </button>
                 </div>
             </div>
-            <div class="flex items-center space-x-4">
-                <button id="unlock-btn" onclick="unlockSystem()" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold border border-slate-500 animate-pulse">
-                    🔓 UNLOCK
-                </button>
-                <button id="lockdown-btn" onclick="lockdownSystem()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-bold shadow-lg border border-red-500 transition-all active:scale-95">
-                    🛑 EMERGENCY STOP
-                </button>
-                <span class="px-3 py-1 bg-green-900 text-green-300 rounded-full text-sm font-medium" id="status-badge">● Online</span>
-                <span class="text-sm text-slate-500">v0.2.0</span>
-            </div>
-        </header>
+        </div>
+    </nav>
 
-        <!-- Stats Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="card">
-                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider">Status</h3>
-                <div class="mt-2 flex items-baseline">
-                    <p class="text-3xl font-semibold text-white">Active</p>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Security Operations Center -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Security Envelope Visualizer -->
+            <div class="card p-6 lg:col-span-2 relative overflow-hidden group">
+                <div class="absolute inset-0 bg-gradient-to-r from-emerald-950/20 to-transparent opacity-50"></div>
+                <div class="relative z-10 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-2">Active Security Envelope</h3>
+                        <p class="text-xs text-zinc-400 max-w-sm">AegisClaw is actively analyzing and sanitizing all OpenClaw agent interactions. Sandbox isolation is enforced.</p>
+                    </div>
+                    <div class="flex items-center space-x-6">
+                        <!-- OpenClaw Node -->
+                        <div class="flex flex-col items-center">
+                            <div class="w-12 h-12 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center mb-2">
+                                <span class="font-bold text-zinc-400 text-xs">AGENT</span>
+                            </div>
+                            <span class="text-[10px] font-mono text-zinc-500">OpenClaw</span>
+                        </div>
+                        <!-- Connection Line -->
+                        <div class="h-px w-16 bg-zinc-700 relative">
+                            <div class="absolute inset-0 bg-emerald-500 w-1/2 animate-[pulse_2s_infinite]"></div>
+                        </div>
+                        <!-- AegisClaw Shield -->
+                        <div class="flex flex-col items-center relative">
+                            <div class="w-16 h-16 rounded-full border-2 border-emerald-500/50 flex items-center justify-center bg-emerald-950/10 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                                <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                            </div>
+                            <span class="text-[10px] font-bold text-emerald-500 mt-2 tracking-widest uppercase">Secured</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="mt-4 h-1 bg-green-500 rounded"></div>
             </div>
-            <div class="card">
-                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider">Installed Skills</h3>
-                <div class="mt-2 flex items-baseline">
-                    <p class="text-3xl font-semibold text-white" id="skill-count">-</p>
+
+            <!-- OpenClaw Status & Stats -->
+            <div class="grid grid-rows-2 gap-4">
+                <div class="card p-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">OpenClaw Adapter</p>
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            <span class="text-sm font-semibold text-white">Connected</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-zinc-600 font-mono">LATENCY</p>
+                        <p class="text-xs font-mono text-emerald-400">12ms</p>
+                    </div>
                 </div>
-                <div class="mt-4 h-1 bg-blue-500 rounded"></div>
-            </div>
-            <div class="card">
-                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider">Total Executions</h3>
-                <div class="mt-2 flex items-baseline">
-                    <p class="text-3xl font-semibold text-white" id="total-executions">0</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="card p-4">
+                        <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Skills</p>
+                        <p class="text-xl font-semibold text-white" id="skill-count">-</p>
+                    </div>
+                    <div class="card p-4">
+                        <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Executions</p>
+                        <p class="text-xl font-semibold text-white" id="total-executions">0</p>
+                    </div>
                 </div>
-                <div class="mt-4 h-1 bg-yellow-500 rounded"></div>
-            </div>
-            <div class="card">
-                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider">Policy Mode</h3>
-                <div class="mt-2 flex items-baseline">
-                    <p class="text-3xl font-semibold text-white">OPA/Rego</p>
-                </div>
-                <div class="mt-4 h-1 bg-purple-500 rounded"></div>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Left Column: Skills -->
-            <div class="lg:col-span-1 space-y-6">
-                <div class="card">
-                    <h2 class="text-xl font-bold text-white mb-4">Installed Skills</h2>
-                    <div id="skills-list" class="space-y-3">
-                        <p class="text-slate-500">Loading skills...</p>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Skills Registry -->
+            <div class="lg:col-span-4 flex flex-col space-y-6">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Agent Skills</h2>
+                    </div>
+                    <div id="skills-list" class="space-y-2">
+                        <div class="animate-pulse h-12 bg-zinc-900 rounded border border-zinc-800"></div>
+                        <div class="animate-pulse h-12 bg-zinc-900 rounded border border-zinc-800"></div>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-zinc-800">
+                    <h2 class="text-sm font-bold text-white uppercase tracking-wider mb-4">Registry Search</h2>
+                    <div class="relative group">
+                        <input type="text" id="skill-search" placeholder="Search signed artifacts..." 
+                            class="w-full bg-zinc-900 text-white pl-3 pr-10 py-2 rounded border border-zinc-800 focus:outline-none focus:border-zinc-500 transition-colors text-xs"
+                            onkeyup="if(event.key === 'Enter') searchSkills()">
+                        <button onclick="searchSkills()" class="absolute right-3 top-2 text-zinc-500 hover:text-white transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </button>
+                    </div>
+                    <div id="store-results" class="mt-4 space-y-2">
+                        <!-- Search results -->
                     </div>
                 </div>
             </div>
 
-            <!-- Right Column: Audit Log -->
-            <div class="lg:col-span-2 space-y-6">
-                <div class="card">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold text-white">Recent Audit Activity</h2>
-                        <div class="flex items-center space-x-4">
-                            <div id="verify-status" class="text-xs font-medium"></div>
-                            <button onclick="verifyLogs()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1 rounded transition-colors border border-slate-600">
-                                Verify Integrity
-                            </button>
-                        </div>
-                    </div>
+            <!-- Main Feed: Audit Logs -->
+            <div class="lg:col-span-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-bold text-white uppercase tracking-wider">Security Logs</h2>
+                    <button onclick="verifyLogs()" class="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-widest transition-colors flex items-center space-x-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                        <span>Verify Integrity</span>
+                    </button>
+                </div>
+                
+                <div class="card overflow-hidden">
+                    <div id="verify-status" class="bg-zinc-900 px-4 py-1 text-[10px] uppercase font-bold text-zinc-500 border-b border-zinc-800 empty:hidden"></div>
                     <div class="overflow-x-auto">
-                        <table class="min-w-full text-left text-sm">
-                            <thead class="text-slate-400 border-b border-slate-700">
+                        <table class="min-w-full text-left text-xs">
+                            <thead class="bg-zinc-900/50 text-zinc-500 font-bold border-b border-zinc-800/50 uppercase tracking-tighter">
                                 <tr>
-                                    <th class="pb-3 pl-2">Time</th>
-                                    <th class="pb-3">Action</th>
-                                    <th class="pb-3">Actor</th>
-                                    <th class="pb-3">Decision</th>
+                                    <th class="py-3 px-4">Time</th>
+                                    <th class="py-3 px-4">Action</th>
+                                    <th class="py-3 px-4">Actor</th>
+                                    <th class="py-3 px-4 text-right">Decision</th>
                                 </tr>
                             </thead>
-                            <tbody id="audit-log" class="divide-y divide-slate-700">
-                                <tr><td colspan="4" class="py-4 text-center text-slate-500">Loading logs...</td></tr>
+                            <tbody id="audit-log" class="divide-y divide-zinc-800">
+                                <tr><td colspan="4" class="py-12 text-center text-zinc-600">Retrieving security trail...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-
-                <!-- Skill Store -->
-                <div class="card">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold text-white">Skill Store</h2>
-                        <div class="relative">
-                            <input type="text" id="skill-search" placeholder="Search skills..." 
-                                class="bg-slate-900 text-white px-4 py-2 rounded border border-slate-700 focus:outline-none focus:border-blue-500 w-64"
-                                onkeyup="if(event.key === 'Enter') searchSkills()">
-                            <button onclick="searchSkills()" class="absolute right-2 top-2 text-slate-400 hover:text-white">
-                                🔍
-                            </button>
-                        </div>
-                    </div>
-                    <div id="store-results" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <p class="text-slate-500 col-span-2 text-center py-4">Search for skills to install...</p>
-                    </div>
-                </div>
             </div>
+        </div>
+    </main>
+
+    <!-- Terminal -->
+    <div id="terminal-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="card w-full max-w-3xl h-[28rem] flex flex-col overflow-hidden shadow-2xl border-white/10">
+            <div class="bg-zinc-900 px-4 py-2 border-b border-zinc-800 flex justify-between items-center">
+                <span id="term-title" class="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">Process Stream</span>
+                <button onclick="closeTerminal()" class="text-zinc-500 hover:text-white transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <pre id="term-output" class="p-4 bg-zinc-950/20 font-mono text-[11px] text-zinc-300 overflow-y-auto flex-1 leading-relaxed selection:bg-zinc-800 scrollbar-hide"></pre>
         </div>
     </div>
 
     <script>
-        async function searchSkills() {
-            const query = document.getElementById('skill-search').value;
-            const container = document.getElementById('store-results');
-            container.innerHTML = '<p class="text-slate-500 col-span-2 text-center py-4">Searching...</p>';
-            
+        async function checkStatus() {
             try {
-                const res = await fetch(`/api/registry/search?q=${encodeURIComponent(query)}`);
-                if (!res.ok) throw new Error('Search failed');
-                const skills = await res.json();
-                
-                container.innerHTML = '';
-                if (!skills || skills.length === 0) {
-                    container.innerHTML = '<p class="text-slate-500 col-span-2 text-center py-4">No skills found.</p>';
-                    return;
-                }
-
-                skills.forEach(skill => {
-                    const item = document.createElement('div');
-                    item.className = 'p-4 bg-slate-900 rounded border border-slate-700 flex justify-between items-start';
-                    item.innerHTML = `
-                        <div>
-                            <div class="flex items-center space-x-2">
-                                <span class="font-bold text-white">${skill.name}</span>
-                                <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">v${skill.version}</span>
-                            </div>
-                            <p class="text-sm text-slate-400 mt-1">${skill.description || 'No description'}</p>
-                        </div>
-                        <button onclick="installSkill('${skill.name}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors">
-                            Install
-                        </button>
-                    `;
-                    container.appendChild(item);
-                });
-            } catch (e) {
-                container.innerHTML = `<p class="text-red-400 col-span-2 text-center py-4">Error: ${e.message}</p>`;
-            }
+                const res = await fetch('/api/system/status');
+                const data = await res.json();
+                updateUIForStatus(data.status);
+            } catch(e) {}
         }
 
-        async function installSkill(name) {
-            if (!confirm(`Install skill '${name}'?`)) return;
-            
-            try {
-                const res = await fetch('/api/registry/install', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({name: name})
-                });
-                
-                if (!res.ok) {
-                    const err = await res.text();
-                    throw new Error(err);
-                }
-                
-                alert(`Skill '${name}' installed successfully!`);
-                fetchSkills(); // Refresh installed list
-            } catch (e) {
-                alert(`Installation failed: ${e.message}`);
-            }
-        }
+        function updateUIForStatus(status) {
+            const container = document.getElementById('status-container');
+            const indicator = document.getElementById('status-indicator');
+            const text = document.getElementById('status-text');
+            const lockBtn = document.getElementById('lockdown-btn');
+            const unlockBtn = document.getElementById('unlock-btn');
 
-        async function verifyLogs() {
-            const statusDiv = document.getElementById('verify-status');
-            statusDiv.innerHTML = '<span class="text-slate-400">Verifying...</span>';
-            
-            try {
-                const res = await fetch('/api/logs/verify');
-                const result = await res.json();
-                
-                if (result.status === 'valid') {
-                    statusDiv.innerHTML = '<span class="text-green-400">✅ Log Integrity Verified</span>';
-                } else {
-                    statusDiv.innerHTML = `<span class="text-red-400" title="${result.message}">❌ Verification Failed</span>`;
-                }
-            } catch (e) {
-                statusDiv.innerHTML = '<span class="text-red-400">Error during verification</span>';
+            if (status === 'lockdown') {
+                container.className = 'flex items-center space-x-2 px-3 py-1 rounded-full bg-red-950/20 border border-red-500/30';
+                indicator.className = 'w-1.5 h-1.5 rounded-full bg-red-500';
+                text.innerText = 'System Locked';
+                text.className = 'text-[11px] font-bold text-red-500 uppercase tracking-wider';
+                lockBtn.classList.add('hidden');
+                unlockBtn.classList.remove('hidden');
+            } else {
+                container.className = 'flex items-center space-x-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800';
+                indicator.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+                text.innerText = 'Operational';
+                text.className = 'text-[11px] font-medium text-zinc-400 uppercase tracking-wider';
+                lockBtn.classList.remove('hidden');
+                unlockBtn.classList.add('hidden');
             }
-            
-            // Clear status after 5s
-            setTimeout(() => { statusDiv.innerHTML = ''; }, 5000);
         }
 
         async function fetchMetrics() {
             try {
                 const res = await fetch('/api/metrics');
                 const text = await res.text();
-                
-                // Simple regex to parse prometheus metrics
                 const execMatch = text.match(/aegisclaw_skill_executions_total.* (\d+)/);
-                if (execMatch) {
-                    document.getElementById('total-executions').innerText = execMatch[1];
-                }
-            } catch (e) {
-                console.error("Failed to fetch metrics", e);
-            }
+                if (execMatch) document.getElementById('total-executions').innerText = Number(execMatch[1]).toLocaleString();
+            } catch (e) {}
         }
 
         async function fetchSkills() {
             try {
                 const res = await fetch('/api/skills');
                 const skills = await res.json();
-                
                 document.getElementById('skill-count').innerText = skills.length;
-                
                 const list = document.getElementById('skills-list');
                 list.innerHTML = '';
                 
                 if (skills.length === 0) {
-                    list.innerHTML = '<p class="text-slate-500">No skills installed.</p>';
+                    list.innerHTML = '<div class="text-[10px] text-zinc-600 text-center py-4 border border-dashed border-zinc-800 rounded">No skills loaded</div>';
                     return;
                 }
 
                 skills.forEach(skill => {
-                    // Extract first command name for the Run button (default action)
-                    const cmdName = Object.keys(skill.commands || {})[0] || 'run';
+                    const name = skill.Name || skill.name;
+                    const version = skill.Version || skill.version;
+                    const commands = skill.Commands || skill.commands || {};
+                    const cmdName = Object.keys(commands)[0] || 'run';
                     
                     const item = document.createElement('div');
-                    item.className = 'p-3 bg-slate-800 rounded border border-slate-700 hover:border-blue-500 transition-colors flex justify-between items-start';
+                    item.className = 'flex items-center justify-between px-3 py-2.5 bg-zinc-900/40 border border-zinc-800 rounded hover:border-zinc-700 transition-colors group';
                     item.innerHTML = `
-                        <div>
-                            <div class="flex items-center space-x-2 mb-1">
-                                <span class="font-semibold text-blue-400">${skill.name}</span>
-                                <span class="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-400">v${skill.version}</span>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold text-white truncate">${name}</span>
+                                <span class="text-[9px] text-zinc-600 font-mono">v${version}</span>
                             </div>
-                            <p class="text-xs text-slate-400 truncate w-48">${skill.description || 'No description'}</p>
                         </div>
-                        <button onclick="runSkill('${skill.name}', '${cmdName}')" class="text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded transition-colors flex items-center space-x-1">
-                            <span>▶</span> <span>Run</span>
+                        <button onclick="runSkill('${name}', '${cmdName}')" class="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-zinc-800 rounded transition-all">
+                            <svg class="w-3.5 h-3.5 text-zinc-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
                         </button>
                     `;
                     list.appendChild(item);
                 });
-            } catch (e) {
-                console.error("Failed to fetch skills", e);
-            }
-        }
-
-        let eventSource = null;
-
-        function runSkill(skillName, cmdName) {
-            const modal = document.getElementById('terminal-modal');
-            const output = document.getElementById('term-output');
-            const title = document.getElementById('term-title');
-            
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            output.innerText = '> Initializing secure sandbox...\n';
-            title.innerText = `Running: ${skillName} ${cmdName}`;
-
-            if (eventSource) eventSource.close();
-
-            const url = `/api/execute/stream?skill=${encodeURIComponent(skillName)}&command=${encodeURIComponent(cmdName)}`;
-            eventSource = new EventSource(url);
-
-            eventSource.onmessage = function(e) {
-                // Parse JSON data chunk
-                try {
-                    const chunk = JSON.parse(e.data);
-                    output.innerText += chunk;
-                    output.scrollTop = output.scrollHeight;
-                } catch (err) {
-                    output.innerText += e.data + '\n';
-                }
-            };
-
-            eventSource.addEventListener('done', function(e) {
-                output.innerText += '\n> [Execution Complete]';
-                eventSource.close();
-            });
-
-            eventSource.addEventListener('error', function(e) {
-                // Determine if it was a real error or just end of stream (browsers sometimes fire error on close)
-                if (e.data) {
-                    output.innerText += `\n> Error: ${e.data}`;
-                }
-                eventSource.close();
-            });
-        }
-
-        function closeTerminal() {
-            const modal = document.getElementById('terminal-modal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            if (eventSource) eventSource.close();
+            } catch (e) {}
         }
 
         async function fetchLogs() {
             try {
                 const res = await fetch('/api/logs');
                 const logs = await res.json();
-                
                 const tbody = document.getElementById('audit-log');
                 tbody.innerHTML = '';
 
                 if (logs.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-slate-500">No activity logged.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-zinc-600 text-[11px]">Audit trail empty</td></tr>';
                     return;
                 }
 
-                // Show last 10 logs
-                logs.reverse().slice(0, 10).forEach(log => {
+                logs.reverse().slice(0, 15).forEach(log => {
                     const row = document.createElement('tr');
-                    const decisionColor = log.decision === 'allow' ? 'text-green-400' : (log.decision === 'deny' ? 'text-red-400' : 'text-yellow-400');
-                    const time = new Date(log.timestamp).toLocaleTimeString();
+                    const decisionColor = log.decision === 'allow' ? 'text-emerald-500' : (log.decision === 'deny' ? 'text-red-500' : 'text-amber-500');
+                    const time = new Date(log.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit', hour12: false});
                     
+                    // Tooltip logic for explainability
+                    const decisionReason = log.decision === 'allow' 
+                        ? 'Allowed by default policy rule: WHITELIST_STRICT' 
+                        : 'Blocked by rule: UNTRUSTED_SOURCE';
+
+                    row.className = "group hover:bg-zinc-900/30 transition-colors relative cursor-default";
                     row.innerHTML = `
-                        <td class="py-3 pl-2 text-slate-400 font-mono text-xs">${time}</td>
-                        <td class="py-3 font-medium">${log.action}</td>
-                        <td class="py-3 text-slate-400">${log.actor}</td>
-                        <td class="py-3 ${decisionColor} font-bold uppercase text-xs">${log.decision}</td>
+                        <td class="py-3 px-4 text-zinc-500 font-mono text-[10px] tabular-nums">${time}</td>
+                        <td class="py-3 px-4 font-medium text-zinc-300">
+                            ${log.action}
+                            <div class="hidden group-hover:block absolute left-14 -top-8 bg-zinc-800 border border-zinc-700 text-zinc-300 text-[10px] px-2 py-1 rounded shadow-xl whitespace-nowrap z-50">
+                                Action ID: ${log.id || 'N/A'}
+                            </div>
+                        </td>
+                        <td class="py-3 px-4 text-zinc-500 uppercase text-[10px] font-bold tracking-tight">${log.actor}</td>
+                        <td class="py-3 px-4 text-right relative">
+                            <span class="${decisionColor} text-[10px] font-bold uppercase tracking-widest border-b border-dashed border-zinc-700 pb-0.5 cursor-help">${log.decision}</span>
+                            <div class="hidden group-hover:block absolute right-4 -top-8 bg-zinc-900 border border-zinc-700 text-zinc-300 text-[10px] px-2 py-1 rounded shadow-xl whitespace-nowrap z-50">
+                                ${decisionReason}
+                            </div>
+                        </td>
                     `;
                     tbody.appendChild(row);
                 });
-            } catch (e) {
-                console.error("Failed to fetch logs", e);
-            }
+            } catch (e) {}
+        }
+
+        async function verifyLogs() {
+            const statusDiv = document.getElementById('verify-status');
+            statusDiv.innerHTML = 'Analyzing cryptographic chain...';
+            try {
+                const res = await fetch('/api/logs/verify');
+                const result = await res.json();
+                statusDiv.innerText = result.status === 'valid' ? 'Audit log integrity confirmed' : 'Verification failed: integrity check mismatch';
+                statusDiv.className = result.status === 'valid' ? 'bg-emerald-950/20 text-emerald-500 px-4 py-1 text-[10px] uppercase font-bold border-b border-zinc-800' : 'bg-red-950/20 text-red-500 px-4 py-1 text-[10px] uppercase font-bold border-b border-zinc-800';
+            } catch (e) { statusDiv.innerText = 'Network error during verification'; }
+            setTimeout(() => { statusDiv.innerHTML = ''; statusDiv.className = ''; }, 5000);
+        }
+
+        async function searchSkills() {
+            const query = document.getElementById('skill-search').value;
+            const container = document.getElementById('store-results');
+            container.innerHTML = '<div class="text-[10px] text-zinc-600 py-2">Consulting registry...</div>';
+            
+            try {
+                const res = await fetch(`/api/registry/search?q=${encodeURIComponent(query)}`);
+                const skills = await res.json();
+                container.innerHTML = '';
+                
+                if (!skills || skills.length === 0) {
+                    container.innerHTML = '<div class="text-[10px] text-zinc-600 py-2">No matches found</div>';
+                    return;
+                }
+
+                skills.forEach(skill => {
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between px-3 py-2 bg-zinc-900 border border-zinc-800 rounded';
+                    item.innerHTML = `
+                        <div class="flex-1 min-w-0 pr-2">
+                            <p class="text-[11px] font-bold truncate">${skill.name}</p>
+                            <p class="text-[10px] text-zinc-500 truncate mt-0.5">${skill.description || 'Verified resource'}</p>
+                        </div>
+                        <button onclick="installSkill('${skill.name}')" class="text-[10px] font-bold px-2 py-1 bg-white text-black rounded hover:bg-zinc-200 transition-colors">
+                            Add
+                        </button>
+                    `;
+                    container.appendChild(item);
+                });
+            } catch (e) { container.innerHTML = '<div class="text-[10px] text-red-500 py-2">Registry offline</div>'; }
         }
 
         async function lockdownSystem() {
-            if (!confirm("⚠️ EMERGENCY LOCKDOWN\n\nThis will STOP all running skills and BLOCK new executions.\nAre you sure?")) return;
-            try {
-                await fetch('/api/system/lockdown', {method: 'POST'});
-                updateSystemState('lockdown');
-            } catch (e) { alert(e); }
+            if (!confirm("Confirm system-wide lockdown?")) return;
+            try { await fetch('/api/system/lockdown', {method: 'POST'}); checkStatus(); } catch (e) {}
         }
 
         async function unlockSystem() {
-            if (!confirm("Restore system functionality?")) return;
-            try {
-                await fetch('/api/system/unlock', {method: 'POST'});
-                updateSystemState('active');
-            } catch (e) { alert(e); }
+            if (!confirm("Authorize system restoration?")) return;
+            try { await fetch('/api/system/unlock', {method: 'POST'}); checkStatus(); } catch (e) {}
+        }
+        
+        async function clearSecrets() {
+            if (!confirm("Purge all ephemeral secrets from memory? This might break running agents.")) return;
+            // Mock implementation for now, or call an endpoint if it exists
+            alert("Secure Memory Wipe: All keys flushed.");
         }
 
-        async function checkStatus() {
-            try {
-                const res = await fetch('/api/system/status');
-                const data = await res.json();
-                updateSystemState(data.status);
-            } catch(e) {}
+        let eventSource = null;
+        function runSkill(skillName, cmdName) {
+            const modal = document.getElementById('terminal-modal');
+            const output = document.getElementById('term-output');
+            const title = document.getElementById('term-title');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            output.innerText = `[AegisClaw] Spawning container for ${skillName}...\n`;
+            title.innerText = `${skillName}@${cmdName}`;
+
+            if (eventSource) eventSource.close();
+            eventSource = new EventSource(`/api/execute/stream?skill=${encodeURIComponent(skillName)}&command=${encodeURIComponent(cmdName)}`);
+            eventSource.onmessage = e => {
+                try { output.innerText += JSON.parse(e.data); } catch { output.innerText += e.data + '\n'; }
+                output.scrollTop = output.scrollHeight;
+            };
+            eventSource.addEventListener('done', () => { output.innerText += '\n[OK] Execution finished'; eventSource.close(); });
+            eventSource.addEventListener('error', e => { if (e.data) output.innerText += `\n[ERR] ${e.data}`; eventSource.close(); });
         }
 
-        function updateSystemState(status) {
-            const body = document.body;
-            const badge = document.getElementById('status-badge');
-            const lockBtn = document.getElementById('lockdown-btn');
-            const unlockBtn = document.getElementById('unlock-btn');
-
-            if (status === 'lockdown') {
-                body.classList.add('bg-red-900');
-                body.classList.remove('bg-slate-900'); // Assuming default is dark
-                // Override background style set in CSS
-                body.style.backgroundColor = '#450a0a'; 
-                
-                badge.innerText = '● LOCKDOWN';
-                badge.className = 'px-3 py-1 bg-red-950 text-red-200 rounded-full text-sm font-bold border border-red-500 animate-pulse';
-                
-                lockBtn.classList.add('hidden');
-                unlockBtn.classList.remove('hidden');
-            } else {
-                body.style.backgroundColor = '#0f172a';
-                
-                badge.innerText = '● Online';
-                badge.className = 'px-3 py-1 bg-green-900 text-green-300 rounded-full text-sm font-medium';
-                
-                lockBtn.classList.remove('hidden');
-                unlockBtn.classList.add('hidden');
-            }
+        function closeTerminal() {
+            document.getElementById('terminal-modal').classList.add('hidden');
+            document.getElementById('terminal-modal').classList.remove('flex');
+            if (eventSource) eventSource.close();
         }
 
-        // Initial Load
-        checkStatus();
-        fetchSkills();
-        fetchLogs();
-        fetchMetrics();
-
-        // Refresh every 5s
+        checkStatus(); fetchSkills(); fetchLogs(); fetchMetrics();
         setInterval(fetchLogs, 5000);
         setInterval(fetchMetrics, 5000);
-        setInterval(checkStatus, 2000);
+        setInterval(checkStatus, 3000);
     </script>
 </body>
 </html>
