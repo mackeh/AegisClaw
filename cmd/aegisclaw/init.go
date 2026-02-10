@@ -17,6 +17,7 @@ type Config struct {
 	} `yaml:"agent"`
 	Security struct {
 		SandboxBackend  string `yaml:"sandbox_backend"`
+		SandboxRuntime  string `yaml:"sandbox_runtime"`
 		RequireApproval bool   `yaml:"require_approval"`
 		AuditEnabled    bool   `yaml:"audit_enabled"`
 	} `yaml:"security"`
@@ -33,6 +34,7 @@ func defaultConfig() *Config {
 	cfg.Agent.Name = "default"
 	cfg.Agent.Enabled = true
 	cfg.Security.SandboxBackend = "docker"
+	cfg.Security.SandboxRuntime = "" // Default to docker default (runc)
 	cfg.Security.RequireApproval = true
 	cfg.Security.AuditEnabled = true
 	cfg.Network.DefaultDeny = true

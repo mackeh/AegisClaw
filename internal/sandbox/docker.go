@@ -80,6 +80,7 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 
 	// 2. Configure HostConfig for security
 	hostConfig := &container.HostConfig{
+		Runtime: cfg.Runtime,
 		// Drop ALL capabilities by default
 		CapDrop: []string{"ALL"},
 

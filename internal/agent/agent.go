@@ -157,6 +157,12 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 	// 7. Execute
 	fmt.Printf("🚀 Running skill: %s\n", m.Name)
 
+	cfg, _ := config.LoadDefault()
+	runtime := ""
+	if cfg != nil {
+		runtime = cfg.Security.SandboxRuntime
+	}
+
 	exec, err := sandbox.NewDockerExecutor()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize executor: %w", err)
@@ -173,6 +179,7 @@ func ExecuteSkill(ctx context.Context, m *skill.Manifest, cmdName string, userAr
 		Network:        needsNetwork,
 		AllowedDomains: allowedDomains,
 		AuditLogger:    logger,
+		Runtime:        runtime,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("execution failed: %w", err)

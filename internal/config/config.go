@@ -33,6 +33,7 @@ type AgentConfig struct {
 // SecurityConfig contains security-related settings
 type SecurityConfig struct {
 	SandboxBackend  string `yaml:"sandbox_backend"`
+	SandboxRuntime  string `yaml:"sandbox_runtime"` // e.g. "runsc"
 	RequireApproval bool   `yaml:"require_approval"`
 	AuditEnabled    bool   `yaml:"audit_enabled"`
 }

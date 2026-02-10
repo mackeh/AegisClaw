@@ -25,6 +25,7 @@ type Config struct {
 	AllowedDomains []string // Specific domains to allow if Network is true
 	AuditLogger    *audit.Logger
 	SeccompPath    string // Path to seccomp profile
+	Runtime        string // e.g. "runsc" (gVisor), "runc" (default)
 }
 
 // Mount represents a filesystem mount
