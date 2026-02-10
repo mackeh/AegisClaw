@@ -60,6 +60,13 @@
                 <div class="mt-4 h-1 bg-blue-500 rounded"></div>
             </div>
             <div class="card">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider">Total Executions</h3>
+                <div class="mt-2 flex items-baseline">
+                    <p class="text-3xl font-semibold text-white" id="total-executions">0</p>
+                </div>
+                <div class="mt-4 h-1 bg-yellow-500 rounded"></div>
+            </div>
+            <div class="card">
                 <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider">Policy Mode</h3>
                 <div class="mt-2 flex items-baseline">
                     <p class="text-3xl font-semibold text-white">OPA/Rego</p>
@@ -211,6 +218,21 @@
             setTimeout(() => { statusDiv.innerHTML = ''; }, 5000);
         }
 
+        async function fetchMetrics() {
+            try {
+                const res = await fetch('/api/metrics');
+                const text = await res.text();
+                
+                // Simple regex to parse prometheus metrics
+                const execMatch = text.match(/aegisclaw_skill_executions_total.* (\d+)/);
+                if (execMatch) {
+                    document.getElementById('total-executions').innerText = execMatch[1];
+                }
+            } catch (e) {
+                console.error("Failed to fetch metrics", e);
+            }
+        }
+
         async function fetchSkills() {
             try {
                 const res = await fetch('/api/skills');
@@ -335,9 +357,11 @@
         // Initial Load
         fetchSkills();
         fetchLogs();
+        fetchMetrics();
 
         // Refresh every 5s
         setInterval(fetchLogs, 5000);
+        setInterval(fetchMetrics, 5000);
     </script>
 </body>
 </html>

@@ -162,7 +162,7 @@ Troubleshooting
 - [ ] **Safety Layer**: NeMo Guardrails integration for LLM prompt protection and custom execution rails.
 - [ ] **Secret Brokering**: `sops` integration; pluggable support for HashiCorp Vault, Infisical, and Bitwarden.
 - [ ] **Auth & Privacy**: Tailscale/WireGuard integration for private access; Authelia/Keycloak for web UI identity.
-- [x] **Observability**: OpenTelemetry instrumentation added (tracing to stdout/file). Pending: metrics and dashboards.
+- [x] **Observability**: OpenTelemetry tracing and Prometheus metrics with live dashboard.
 - [ ] **Skills Ecosystem**: Git-based skill distribution with enhanced hash-chained provenance.
 
 ## 🤝 Contributing

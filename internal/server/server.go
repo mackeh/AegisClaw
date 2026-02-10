@@ -12,6 +12,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/server/ui"
 	"github.com/mackeh/AegisClaw/internal/skill"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Request represents a skill execution request
@@ -50,6 +51,7 @@ func (s *Server) Start() error {
 	// API
 	http.HandleFunc("/api/skills", s.handleListSkills)
 	http.HandleFunc("/api/logs", s.handleListLogs)
+	http.HandleFunc("/api/metrics", promhttp.Handler().ServeHTTP)
 	http.HandleFunc("/api/logs/verify", s.handleVerifyLogs)
 	http.HandleFunc("/api/registry/search", s.handleRegistrySearch)
 	http.HandleFunc("/api/registry/install", s.handleRegistryInstall)

@@ -19,6 +19,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/secrets"
 	"github.com/mackeh/AegisClaw/internal/security/redactor"
 	"github.com/mackeh/AegisClaw/internal/skill"
+	"github.com/mackeh/AegisClaw/internal/telemetry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -81,8 +82,10 @@ func ExecuteSkillWithStream(ctx context.Context, m *skill.Manifest, cmdName stri
 	
 	decision, riskyScopes, err := engine.EvaluateRequest(ctx, req)
 	if err != nil {
+		telemetry.PolicyDecisionsTotal.WithLabelValues("error").Inc()
 		return nil, fmt.Errorf("policy evaluation failed: %w", err)
 	}
+	telemetry.PolicyDecisionsTotal.WithLabelValues(decision.String()).Inc()
 
 	finalDecision := "deny"
 
@@ -205,8 +208,10 @@ func ExecuteSkillWithStream(ctx context.Context, m *skill.Manifest, cmdName stri
 		Runtime:        runtime,
 	})
 	if err != nil {
+		telemetry.SkillExecutionsTotal.WithLabelValues(m.Name, "error").Inc()
 		return nil, fmt.Errorf("execution failed: %w", err)
 	}
+	telemetry.SkillExecutionsTotal.WithLabelValues(m.Name, "success").Inc()
 
 	// Capture output
 	stdoutBuf := new(bytes.Buffer)
