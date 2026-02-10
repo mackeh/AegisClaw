@@ -155,6 +155,7 @@ Troubleshooting
 
 ### Upcoming (v0.2+)
 
+- [x] **Policy Engine**: OPA (Rego) policy engine integration.
 - [ ] **Advanced Runtimes**: `docker-compose` support for easy multi-container setups. support for gVisor, Kata Containers, or Nix/bubblewrap for advanced users.
 - [ ] **Safety Layer**: NeMo Guardrails integration for LLM prompt protection and custom execution rails.
 - [ ] **Secret Brokering**: `sops` integration; pluggable support for HashiCorp Vault, Infisical, and Bitwarden.
