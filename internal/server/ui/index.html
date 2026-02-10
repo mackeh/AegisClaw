@@ -99,11 +99,89 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Skill Store -->
+                <div class="card">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-white">Skill Store</h2>
+                        <div class="relative">
+                            <input type="text" id="skill-search" placeholder="Search skills..." 
+                                class="bg-slate-900 text-white px-4 py-2 rounded border border-slate-700 focus:outline-none focus:border-blue-500 w-64"
+                                onkeyup="if(event.key === 'Enter') searchSkills()">
+                            <button onclick="searchSkills()" class="absolute right-2 top-2 text-slate-400 hover:text-white">
+                                🔍
+                            </button>
+                        </div>
+                    </div>
+                    <div id="store-results" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <p class="text-slate-500 col-span-2 text-center py-4">Search for skills to install...</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        async function searchSkills() {
+            const query = document.getElementById('skill-search').value;
+            const container = document.getElementById('store-results');
+            container.innerHTML = '<p class="text-slate-500 col-span-2 text-center py-4">Searching...</p>';
+            
+            try {
+                const res = await fetch(`/api/registry/search?q=${encodeURIComponent(query)}`);
+                if (!res.ok) throw new Error('Search failed');
+                const skills = await res.json();
+                
+                container.innerHTML = '';
+                if (!skills || skills.length === 0) {
+                    container.innerHTML = '<p class="text-slate-500 col-span-2 text-center py-4">No skills found.</p>';
+                    return;
+                }
+
+                skills.forEach(skill => {
+                    const item = document.createElement('div');
+                    item.className = 'p-4 bg-slate-900 rounded border border-slate-700 flex justify-between items-start';
+                    item.innerHTML = `
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-white">${skill.name}</span>
+                                <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">v${skill.version}</span>
+                            </div>
+                            <p class="text-sm text-slate-400 mt-1">${skill.description || 'No description'}</p>
+                        </div>
+                        <button onclick="installSkill('${skill.name}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                            Install
+                        </button>
+                    `;
+                    container.appendChild(item);
+                });
+            } catch (e) {
+                container.innerHTML = `<p class="text-red-400 col-span-2 text-center py-4">Error: ${e.message}</p>`;
+            }
+        }
+
+        async function installSkill(name) {
+            if (!confirm(`Install skill '${name}'?`)) return;
+            
+            try {
+                const res = await fetch('/api/registry/install', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: name})
+                });
+                
+                if (!res.ok) {
+                    const err = await res.text();
+                    throw new Error(err);
+                }
+                
+                alert(`Skill '${name}' installed successfully!`);
+                fetchSkills(); // Refresh installed list
+            } catch (e) {
+                alert(`Installation failed: ${e.message}`);
+            }
+        }
+
         async function fetchSkills() {
             try {
                 const res = await fetch('/api/skills');

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"github.com/mackeh/AegisClaw/internal/agent"
 	"github.com/mackeh/AegisClaw/internal/audit"
@@ -18,6 +19,11 @@ type Request struct {
 	Skill   string   `json:"skill"`
 	Command string   `json:"command"`
 	Args    []string `json:"args"`
+}
+
+// InstallRequest represents a request to install a skill
+type InstallRequest struct {
+	Name string `json:"name"`
 }
 
 // Response represents the result of a skill execution
@@ -44,6 +50,8 @@ func (s *Server) Start() error {
 	// API
 	http.HandleFunc("/api/skills", s.handleListSkills)
 	http.HandleFunc("/api/logs", s.handleListLogs)
+	http.HandleFunc("/api/registry/search", s.handleRegistrySearch)
+	http.HandleFunc("/api/registry/install", s.handleRegistryInstall)
 	http.HandleFunc("/execute", s.handleExecute)
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -89,6 +97,76 @@ func (s *Server) handleListLogs(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(entries)
 }
 
+
+func (s *Server) handleRegistrySearch(w http.ResponseWriter, r *http.Request) {
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		http.Error(w, "Failed to load config", http.StatusInternalServerError)
+		return
+	}
+
+	if cfg.Registry.URL == "" {
+		http.Error(w, "Registry URL not configured", http.StatusBadRequest)
+		return
+	}
+
+	index, err := skill.SearchRegistry(cfg.Registry.URL)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Registry error: %v", err), http.StatusBadGateway)
+		return
+	}
+
+	query := strings.ToLower(r.URL.Query().Get("q"))
+	var results []skill.RegistrySkill
+
+	if query == "" {
+		results = index.Skills
+	} else {
+		for _, s := range index.Skills {
+			if strings.Contains(strings.ToLower(s.Name), query) || strings.Contains(strings.ToLower(s.Description), query) {
+				results = append(results, s)
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
+}
+
+func (s *Server) handleRegistryInstall(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req InstallRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		http.Error(w, "Failed to load config", http.StatusInternalServerError)
+		return
+	}
+
+	if cfg.Registry.URL == "" {
+		http.Error(w, "Registry URL not configured", http.StatusBadRequest)
+		return
+	}
+
+	cfgDir, _ := config.DefaultConfigDir()
+	skillsDir := filepath.Join(cfgDir, "skills")
+
+	if err := skill.InstallSkill(req.Name, skillsDir, cfg.Registry.URL, cfg.Registry.TrustKeys); err != nil {
+		http.Error(w, fmt.Sprintf("Install failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"ok"}`))
+}
 
 func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
