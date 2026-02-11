@@ -91,4 +91,5 @@ Skills load from both `~/.aegisclaw/skills/` and a local `./skills/` directory. 
 - Thread safety via mutexes on shared state (audit logger, system lockdown, redactor)
 - CLI output uses emoji prefixes for visual feedback
 - Policy files are OPA Rego with package `aegisclaw.policy`
-- Version is hardcoded in `cmd/aegisclaw/main.go` (`var version`)
+- Version is hardcoded in `cmd/aegisclaw/main.go` (`var version`) and `internal/mcp/server.go`
+- Test coverage spans 26 packages; only `agent`, `approval`, `server/ui` lack tests (agent requires Docker, approval is TUI-interactive, ui is an embed directive)
