@@ -9,11 +9,14 @@ import (
 	"strings"
 	"time"
 
+	"encoding/json"
+
 	"github.com/mackeh/AegisClaw/internal/agent"
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/doctor"
 	"github.com/mackeh/AegisClaw/internal/guardrails"
+	"github.com/mackeh/AegisClaw/internal/marketplace"
 	"github.com/mackeh/AegisClaw/internal/mcp"
 	"github.com/mackeh/AegisClaw/internal/posture"
 	"github.com/mackeh/AegisClaw/internal/sandbox"
@@ -22,6 +25,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/simulate"
 	"github.com/mackeh/AegisClaw/internal/skill"
 	"github.com/mackeh/AegisClaw/internal/telemetry"
+	"github.com/mackeh/AegisClaw/internal/xray"
 	"github.com/spf13/cobra"
 )
 
@@ -70,6 +74,8 @@ human-in-the-loop approvals, encrypted secrets, and tamper-evident audit logging
 	rootCmd.AddCommand(simulateCmd())
 	rootCmd.AddCommand(mcpServerCmd())
 	rootCmd.AddCommand(guardrailsCmd())
+	rootCmd.AddCommand(xrayCmd())
+	rootCmd.AddCommand(marketplaceCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -890,5 +896,215 @@ func guardrailsCmd() *cobra.Command {
 
 	cmd.AddCommand(checkCmd)
 	cmd.AddCommand(scanCmd)
+	return cmd
+}
+
+func xrayCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "xray",
+		Short: "Deep inspection of running skill containers",
+		Long:  "Agent X-Ray mode: inspect CPU, memory, network, and processes of running AegisClaw skills.",
+	}
+
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all running AegisClaw containers with resource stats",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			inspector, err := xray.NewInspector()
+			if err != nil {
+				return err
+			}
+
+			snapshots, err := inspector.ListAegisClaw(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			if len(snapshots) == 0 {
+				fmt.Println("No running AegisClaw containers found.")
+				fmt.Println("Hint: containers need the label 'aegisclaw.skill' to be detected.")
+				return nil
+			}
+
+			for _, s := range snapshots {
+				fmt.Printf("   Container: %s (%s)\n", s.ContainerName, s.ContainerID)
+				fmt.Printf("     Image:   %s\n", s.Image)
+				fmt.Printf("     Status:  %s\n", s.Status)
+				fmt.Printf("     CPU:     %.1f%%\n", s.Resources.CPUPercent)
+				fmt.Printf("     Memory:  %.1f MB / %.0f MB (%.1f%%)\n",
+					s.Resources.MemoryMB, s.Resources.MemoryMax, s.Resources.MemoryPct)
+				fmt.Printf("     PIDs:    %d\n", s.Resources.PIDs)
+				if len(s.Network) > 0 {
+					for _, n := range s.Network {
+						fmt.Printf("     Net[%s]: RX %.1f KB / TX %.1f KB\n",
+							n.Interface, float64(n.RxBytes)/1024, float64(n.TxBytes)/1024)
+					}
+				}
+				fmt.Println()
+			}
+			return nil
+		},
+	}
+
+	inspectCmd := &cobra.Command{
+		Use:   "inspect [container-id]",
+		Short: "Detailed inspection of a specific container",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			inspector, err := xray.NewInspector()
+			if err != nil {
+				return err
+			}
+
+			snap, err := inspector.Inspect(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+
+			data, _ := json.MarshalIndent(snap, "", "  ")
+			fmt.Println(string(data))
+			return nil
+		},
+	}
+
+	cmd.AddCommand(listCmd)
+	cmd.AddCommand(inspectCmd)
+	return cmd
+}
+
+func marketplaceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "marketplace",
+		Aliases: []string{"market", "store"},
+		Short:   "Discover, search, and install skills from the marketplace",
+	}
+
+	searchCmd := &cobra.Command{
+		Use:   "search [query]",
+		Short: "Search the skill marketplace",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfgDir, err := config.DefaultConfigDir()
+			if err != nil {
+				return err
+			}
+
+			cache := marketplace.NewCache(filepath.Join(cfgDir, "marketplace"))
+			idx, err := cache.Load()
+			if err != nil {
+				fmt.Println("No cached marketplace index. Run 'aegisclaw marketplace refresh' first.")
+				return nil
+			}
+
+			query := ""
+			if len(args) > 0 {
+				query = strings.Join(args, " ")
+			}
+
+			sortBy, _ := cmd.Flags().GetString("sort")
+
+			results := marketplace.Search(idx, query)
+			switch sortBy {
+			case "rating":
+				marketplace.SortByRating(results)
+			case "downloads":
+				marketplace.SortByDownloads(results)
+			}
+
+			if len(results) == 0 {
+				fmt.Println("No skills found.")
+				return nil
+			}
+
+			fmt.Printf("Found %d skill(s):\n\n", len(results))
+			for _, e := range results {
+				fmt.Println(marketplace.FormatEntry(e))
+				fmt.Println()
+			}
+			return nil
+		},
+	}
+	searchCmd.Flags().String("sort", "rating", "Sort results by: rating, downloads")
+
+	refreshCmd := &cobra.Command{
+		Use:   "refresh",
+		Short: "Refresh the marketplace index cache",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.LoadDefault()
+			if err != nil {
+				return err
+			}
+			if cfg.Registry.URL == "" {
+				fmt.Println("Registry URL not configured in config.yaml.")
+				fmt.Println("Set registry.url to your marketplace endpoint.")
+				return nil
+			}
+
+			regIdx, err := skill.SearchRegistry(cfg.Registry.URL)
+			if err != nil {
+				return fmt.Errorf("fetch registry: %w", err)
+			}
+
+			// Convert to marketplace index
+			var entries []marketplace.SkillEntry
+			for _, s := range regIdx.Skills {
+				entries = append(entries, marketplace.SkillEntry{
+					Name:        s.Name,
+					Version:     s.Version,
+					Description: s.Description,
+					Badge:       marketplace.BadgeCommunity,
+					ManifestURL: s.ManifestURL,
+				})
+			}
+
+			cfgDir, _ := config.DefaultConfigDir()
+			cache := marketplace.NewCache(filepath.Join(cfgDir, "marketplace"))
+			idx := &marketplace.Index{
+				Name:   regIdx.RegistryName,
+				URL:    cfg.Registry.URL,
+				Skills: entries,
+			}
+			if err := cache.Save(idx); err != nil {
+				return err
+			}
+
+			fmt.Printf("Refreshed marketplace index: %d skills cached.\n", len(entries))
+			return nil
+		},
+	}
+
+	infoCmd := &cobra.Command{
+		Use:   "info [skill-name]",
+		Short: "Show detailed info about a marketplace skill",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfgDir, err := config.DefaultConfigDir()
+			if err != nil {
+				return err
+			}
+
+			cache := marketplace.NewCache(filepath.Join(cfgDir, "marketplace"))
+			idx, err := cache.Load()
+			if err != nil {
+				fmt.Println("No cached marketplace index. Run 'aegisclaw marketplace refresh' first.")
+				return nil
+			}
+
+			results := marketplace.Search(idx, args[0])
+			for _, e := range results {
+				if e.Name == args[0] {
+					data, _ := json.MarshalIndent(e, "", "  ")
+					fmt.Println(string(data))
+					return nil
+				}
+			}
+
+			fmt.Printf("Skill '%s' not found in marketplace.\n", args[0])
+			return nil
+		},
+	}
+
+	cmd.AddCommand(searchCmd)
+	cmd.AddCommand(refreshCmd)
+	cmd.AddCommand(infoCmd)
 	return cmd
 }

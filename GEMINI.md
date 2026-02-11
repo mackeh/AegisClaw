@@ -84,9 +84,9 @@ AegisClaw is specifically designed to defend against:
 
 ### v0.6.x (Ecosystem)
 - [x] Live threat map dashboard with WebSocket streaming
-- [ ] Agent X-Ray mode (deep runtime inspection)
+- [x] Agent X-Ray mode (deep runtime inspection via Docker API)
 - [x] Security posture score & badge (A–F grading)
 - [x] MCP server for AI assistant integration (stdio transport)
-- [ ] Skill marketplace with ratings and security badges
-- [ ] VS Code extension
+- [x] Skill marketplace with ratings and security badges
+- [x] VS Code extension (status, audit, skills, Rego snippets)
 - [x] `aegisclaw simulate` dry-run mode

@@ -1,0 +1,59 @@
+{
+  "AegisClaw Policy Package": {
+    "prefix": "aegis-policy",
+    "body": [
+      "package aegisclaw.policy",
+      "",
+      "import rego.v1",
+      "",
+      "default decision := \"deny\"",
+      "",
+      "decision := \"allow\" if {",
+      "\tinput.scope.name == \"${1:files.read}\"",
+      "\tstartswith(input.scope.resource, \"${2:/tmp}\")",
+      "}",
+      ""
+    ],
+    "description": "AegisClaw OPA policy scaffold"
+  },
+  "AegisClaw Allow Rule": {
+    "prefix": "aegis-allow",
+    "body": [
+      "decision := \"allow\" if {",
+      "\tinput.scope.name == \"${1:scope_name}\"",
+      "\t${2:# additional conditions}",
+      "}",
+      ""
+    ],
+    "description": "AegisClaw allow rule"
+  },
+  "AegisClaw Deny Rule": {
+    "prefix": "aegis-deny",
+    "body": [
+      "decision := \"deny\" if {",
+      "\tinput.scope.name == \"${1:scope_name}\"",
+      "\t${2:# deny conditions}",
+      "}",
+      ""
+    ],
+    "description": "AegisClaw deny rule"
+  },
+  "AegisClaw Require Approval": {
+    "prefix": "aegis-approve",
+    "body": [
+      "decision := \"require_approval\" if {",
+      "\tinput.scope.name == \"${1:shell.exec}\"",
+      "}",
+      ""
+    ],
+    "description": "AegisClaw require approval rule"
+  },
+  "AegisClaw Scope Check": {
+    "prefix": "aegis-scope",
+    "body": [
+      "input.scope.name == \"${1:net.outbound}\"",
+      "input.scope.resource == \"${2:api.example.com}\""
+    ],
+    "description": "AegisClaw scope condition"
+  }
+}

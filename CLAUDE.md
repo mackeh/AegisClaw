@@ -59,9 +59,12 @@ When a skill runs, the path through the codebase is:
 - **Posture** (`internal/posture/`) — Security posture scoring (A–F grade) across sandboxing, secrets, policy, audit, network
 - **Simulate** (`internal/simulate/`) — Dry-run skill analysis: scope evaluation, risk assessment, policy check without execution
 - **Guardrails** (`internal/guardrails/`) — LLM prompt safety: injection detection, jailbreak prevention, secret leak sanitization
+- **X-Ray** (`internal/xray/`) — Deep runtime inspection of Docker containers: CPU, memory, network I/O, process list
+- **Marketplace** (`internal/marketplace/`) — Skill marketplace with ratings, security badges, search, and local index caching
 - **MCP** (`internal/mcp/`) — Model Context Protocol stdio server exposing AegisClaw tools to AI assistants
 - **System** (`internal/system/`) — Global lockdown state (mutex-protected bool)
 - **Telemetry** (`internal/telemetry/`) — OpenTelemetry tracing + Prometheus metrics
+- **VS Code Extension** (`vscode-extension/`) — TypeScript extension with status sidebar, audit stream, skills tree, and Rego snippets
 
 ### Skill Manifests
 

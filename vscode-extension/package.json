@@ -1,0 +1,99 @@
+{
+  "name": "aegisclaw",
+  "displayName": "AegisClaw",
+  "description": "Security monitoring and management for AegisClaw agent runtime",
+  "version": "0.1.0",
+  "publisher": "aegisclaw",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Snippets"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aegisclaw",
+          "title": "AegisClaw",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "aegisclaw": [
+        {
+          "id": "aegisclaw.status",
+          "name": "Status"
+        },
+        {
+          "id": "aegisclaw.audit",
+          "name": "Audit Stream"
+        },
+        {
+          "id": "aegisclaw.skills",
+          "name": "Skills"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "aegisclaw.refresh",
+        "title": "AegisClaw: Refresh Status"
+      },
+      {
+        "command": "aegisclaw.lockdown",
+        "title": "AegisClaw: Emergency Lockdown"
+      },
+      {
+        "command": "aegisclaw.unlock",
+        "title": "AegisClaw: Unlock System"
+      },
+      {
+        "command": "aegisclaw.verifyLogs",
+        "title": "AegisClaw: Verify Audit Log Integrity"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "rego",
+        "path": "./snippets/rego.json"
+      }
+    ],
+    "configuration": {
+      "title": "AegisClaw",
+      "properties": {
+        "aegisclaw.serverUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8080",
+          "description": "URL of the AegisClaw API server"
+        },
+        "aegisclaw.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh status on interval"
+        },
+        "aegisclaw.refreshInterval": {
+          "type": "number",
+          "default": 5000,
+          "description": "Status refresh interval in milliseconds"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

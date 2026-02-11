@@ -228,11 +228,11 @@ Troubleshooting
 ### v0.6.x (Ecosystem)
 
 - [x] **Live Threat Map Dashboard**: WebSocket hub for real-time event streaming (audit, lockdown, posture).
-- [ ] **Agent X-Ray Mode**: Deep inspection of running skills (syscalls, network, resource gauges).
+- [x] **Agent X-Ray Mode**: Deep inspection of running skills (CPU, memory, network, processes via Docker API).
 - [x] **Security Posture Score**: Gamified scoring of configuration quality with CLI badge (A–F grading).
 - [x] **MCP Server**: Expose AegisClaw as an MCP tool for AI assistants (stdio transport).
-- [ ] **Skill Marketplace**: Community registry with ratings, security badges, and one-click install.
-- [ ] **VS Code Extension**: Sidebar panel for status, approvals, audit stream, and Rego linting.
+- [x] **Skill Marketplace**: Local registry with ratings, security badges, search, and caching.
+- [x] **VS Code Extension**: Sidebar panel for status, audit stream, skills, and Rego snippets.
 - [x] **`aegisclaw simulate`**: Dry-run mode predicting skill behaviour without execution.
 
 ## 🤝 Contributing

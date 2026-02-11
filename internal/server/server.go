@@ -14,6 +14,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/server/ui"
 	"github.com/mackeh/AegisClaw/internal/skill"
 	"github.com/mackeh/AegisClaw/internal/system"
+	"github.com/mackeh/AegisClaw/internal/xray"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -63,6 +64,7 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/registry/install", s.handleRegistryInstall)
 	http.HandleFunc("/api/execute/stream", s.handleExecuteStream)
 	http.HandleFunc("/api/ws", s.Hub.ServeWS)
+	http.HandleFunc("/api/xray", s.handleXray)
 	http.HandleFunc("/execute", s.handleExecute)
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -108,6 +110,26 @@ func (s *Server) handleListLogs(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(entries)
 }
 
+
+func (s *Server) handleXray(w http.ResponseWriter, r *http.Request) {
+	inspector, err := xray.NewInspector()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("xray: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	snapshots, err := inspector.ListAegisClaw(r.Context())
+	if err != nil {
+		http.Error(w, fmt.Sprintf("xray list: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"containers": snapshots,
+		"count":      len(snapshots),
+	})
+}
 
 func (s *Server) handleSystemStatus(w http.ResponseWriter, r *http.Request) {
 	status := "active"
