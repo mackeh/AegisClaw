@@ -13,15 +13,18 @@ import (
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/doctor"
+	"github.com/mackeh/AegisClaw/internal/mcp"
+	"github.com/mackeh/AegisClaw/internal/posture"
 	"github.com/mackeh/AegisClaw/internal/sandbox"
 	"github.com/mackeh/AegisClaw/internal/secrets"
 	"github.com/mackeh/AegisClaw/internal/server"
+	"github.com/mackeh/AegisClaw/internal/simulate"
 	"github.com/mackeh/AegisClaw/internal/skill"
 	"github.com/mackeh/AegisClaw/internal/telemetry"
 	"github.com/spf13/cobra"
 )
 
-var version = "0.3.1"
+var version = "0.4.0"
 
 func main() {
 	// Setup Telemetry
@@ -62,6 +65,9 @@ human-in-the-loop approvals, encrypted secrets, and tamper-evident audit logging
 	rootCmd.AddCommand(serveCmd())
 	rootCmd.AddCommand(doctorCmd())
 	rootCmd.AddCommand(completionCmd())
+	rootCmd.AddCommand(postureCmd())
+	rootCmd.AddCommand(simulateCmd())
+	rootCmd.AddCommand(mcpServerCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -642,6 +648,147 @@ PowerShell:
 			default:
 				return fmt.Errorf("unsupported shell: %s", args[0])
 			}
+		},
+	}
+}
+
+func postureCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "posture",
+		Short: "Show security posture score",
+		Long:  "Evaluates your AegisClaw configuration and assigns a security grade.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			score, err := posture.Calculate()
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("🛡️  AegisClaw Security Posture")
+			fmt.Println()
+
+			for _, c := range score.Categories {
+				bar := renderBar(c.Points, c.Max)
+				fmt.Printf("  %-12s %s %d/%d  %s\n", c.Name, bar, c.Points, c.Max, c.Detail)
+			}
+
+			fmt.Println()
+			fmt.Printf("  Total: %d/%d (%d%%) — Grade: %s\n", score.Total, score.Max, score.Percentage, score.Grade)
+			return nil
+		},
+	}
+}
+
+func renderBar(points, max int) string {
+	width := 20
+	filled := 0
+	if max > 0 {
+		filled = points * width / max
+	}
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
+	return "[" + bar + "]"
+}
+
+func simulateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "simulate [MANIFEST_PATH]",
+		Short: "Dry-run a skill without executing it",
+		Long:  "Analyzes a skill manifest and predicts behaviour, scope usage, and policy decisions.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			manifestPath := args[0]
+			m, err := skill.LoadManifest(manifestPath)
+			if err != nil {
+				return err
+			}
+
+			report, err := simulate.Run(cmd.Context(), m)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("🔮 Simulation Report: %s v%s\n", report.SkillName, report.Version)
+			fmt.Printf("   Platform: %s | Image: %s\n", report.Platform, report.Image)
+			fmt.Println()
+
+			if len(report.Commands) > 0 {
+				fmt.Println("   Commands:")
+				for _, c := range report.Commands {
+					fmt.Printf("     - %s\n", c)
+				}
+				fmt.Println()
+			}
+
+			if len(report.Scopes) > 0 {
+				fmt.Println("   Scopes:")
+				for _, s := range report.Scopes {
+					risk := s.Risk
+					switch risk {
+					case "critical":
+						risk = "🔴 critical"
+					case "high":
+						risk = "🟠 high"
+					case "medium":
+						risk = "🟡 medium"
+					case "low":
+						risk = "🟢 low"
+					}
+					fmt.Printf("     %s  [%s]\n", s.Raw, risk)
+				}
+				fmt.Println()
+			}
+
+			if len(report.NetworkAccess) > 0 {
+				fmt.Println("   Network access:")
+				for _, n := range report.NetworkAccess {
+					fmt.Printf("     🌐 %s\n", n)
+				}
+				fmt.Println()
+			}
+
+			if len(report.FileAccess) > 0 {
+				fmt.Println("   File access:")
+				for _, f := range report.FileAccess {
+					fmt.Printf("     📁 %s\n", f)
+				}
+				fmt.Println()
+			}
+
+			fmt.Printf("   Risk assessment: %s\n", strings.ToUpper(report.RiskLevel))
+			fmt.Printf("   Policy decision: %s\n", report.PolicyDecision)
+
+			if len(report.Warnings) > 0 {
+				fmt.Println()
+				fmt.Println("   Warnings:")
+				for _, w := range report.Warnings {
+					fmt.Printf("     ⚠️  %s\n", w)
+				}
+			}
+
+			return nil
+		},
+	}
+}
+
+func mcpServerCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "mcp-server",
+		Short: "Start the MCP server for AI assistant integration",
+		Long: `Start a Model Context Protocol server on stdio.
+
+This allows AI assistants like Claude Code to interact with AegisClaw.
+
+Configure in your MCP settings:
+  {
+    "mcpServers": {
+      "aegisclaw": {
+        "command": "aegisclaw",
+        "args": ["mcp-server"]
+      }
+    }
+  }`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			srv := mcp.NewServer()
+			return srv.Run(cmd.Context())
 		},
 	}
 }
