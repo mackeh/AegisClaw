@@ -235,6 +235,12 @@ Troubleshooting
 - [x] **VS Code Extension**: Sidebar panel for status, audit stream, skills, and Rego snippets.
 - [x] **`aegisclaw simulate`**: Dry-run mode predicting skill behaviour without execution.
 
+### Long-Term Vision
+
+- [x] **eBPF Runtime Monitoring**: Kernel-level event types, monitor lifecycle, and probe interfaces (foundation).
+- [x] **Multi-Node Orchestration**: gRPC-based cluster with leader/follower roles, audit forwarding, and policy sync.
+- [ ] **AegisClaw Cloud**: Multi-tenant SaaS with org/team hierarchy, managed registry, and hosted dashboards.
+
 ## 🤝 Contributing
 We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
 

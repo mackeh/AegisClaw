@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 
 	"github.com/mackeh/AegisClaw/internal/agent"
+	"github.com/mackeh/AegisClaw/internal/cluster"
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/doctor"
@@ -76,6 +77,7 @@ human-in-the-loop approvals, encrypted secrets, and tamper-evident audit logging
 	rootCmd.AddCommand(guardrailsCmd())
 	rootCmd.AddCommand(xrayCmd())
 	rootCmd.AddCommand(marketplaceCmd())
+	rootCmd.AddCommand(clusterCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -1106,5 +1108,64 @@ func marketplaceCmd() *cobra.Command {
 	cmd.AddCommand(searchCmd)
 	cmd.AddCommand(refreshCmd)
 	cmd.AddCommand(infoCmd)
+	return cmd
+}
+
+func clusterCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cluster",
+		Short: "Multi-node cluster management",
+		Long:  "Manage a cluster of AegisClaw instances with centralized policy and audit aggregation.",
+	}
+
+	statusCmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show cluster status",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			nodeID, _ := cmd.Flags().GetString("node-id")
+			addr, _ := cmd.Flags().GetString("address")
+			role, _ := cmd.Flags().GetString("role")
+
+			node := cluster.NewNode(nodeID, addr, cluster.NodeRole(role), version)
+			status := node.Status()
+
+			fmt.Printf("   Cluster Status\n")
+			fmt.Printf("   Node:     %s (%s)\n", status.Nodes[0].ID, status.Nodes[0].Role)
+			fmt.Printf("   Address:  %s\n", status.Nodes[0].Address)
+			fmt.Printf("   Status:   %s\n", status.Nodes[0].Status)
+			fmt.Printf("   Nodes:    %d total, %d online\n", status.NodeCount, status.OnlineNodes)
+
+			return nil
+		},
+	}
+	statusCmd.Flags().String("node-id", "node-1", "This node's ID")
+	statusCmd.Flags().String("address", "localhost:9090", "This node's gRPC address")
+	statusCmd.Flags().String("role", "leader", "Node role: leader or follower")
+
+	joinCmd := &cobra.Command{
+		Use:   "join [leader-address]",
+		Short: "Join a cluster as a follower node",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			nodeID, _ := cmd.Flags().GetString("node-id")
+			addr, _ := cmd.Flags().GetString("address")
+
+			node := cluster.NewNode(nodeID, addr, cluster.RoleFollower, version)
+			conn, err := node.ConnectToLeader(args[0])
+			if err != nil {
+				return fmt.Errorf("failed to connect to leader: %w", err)
+			}
+			defer conn.Close()
+
+			fmt.Printf("   Connected to leader at %s\n", args[0])
+			fmt.Printf("   Node %s registered as follower\n", nodeID)
+			return nil
+		},
+	}
+	joinCmd.Flags().String("node-id", "node-1", "This node's ID")
+	joinCmd.Flags().String("address", "localhost:9091", "This node's gRPC address")
+
+	cmd.AddCommand(statusCmd)
+	cmd.AddCommand(joinCmd)
 	return cmd
 }
