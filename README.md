@@ -207,13 +207,33 @@ Troubleshooting
 - [x] **v0.2.x (Policy & Runtimes)**: OPA (Rego) policy engine integration, gVisor (`sandbox_runtime`) support.
 - [x] **v0.3.x (Observability & UX)**: Modern Web Dashboard, Real-time Terminal Streaming, Prometheus Metrics, OpenTelemetry Tracing, Active Secret Redaction, Emergency Lockdown (Panic Button).
 
-### Upcoming
+### v0.4.x (Usability & Developer Experience)
 
-- [ ] **Advanced Runtimes**: `docker-compose` support for easy multi-container setups; support for Kata Containers, Firecracker, or Nix/bubblewrap.
-- [ ] **Safety Layer**: NeMo Guardrails integration for LLM prompt protection and custom execution rails.
-- [ ] **Secret Brokering**: `sops` integration; pluggable support for HashiCorp Vault, Infisical, and Bitwarden.
-- [ ] **Auth & Privacy**: Tailscale/WireGuard integration for private access; Authelia/Keycloak for web UI identity.
-- [ ] **Skills Ecosystem**: Git-based skill distribution with enhanced hash-chained provenance.
+- [ ] **Package Manager Distribution**: Homebrew tap, `go install` support, cross-platform install script.
+- [ ] **Interactive Init Wizard**: Guided first-run setup with environment detection (Docker, gVisor) and policy selection.
+- [ ] **Starter Skill Packs**: Pre-built, signed skills (file-organiser, web-search, code-runner, summariser, git-stats).
+- [ ] **`aegisclaw doctor`**: Single command to diagnose setup — Docker, secrets, audit integrity, policy engine, disk space.
+- [ ] **Docker-Compose Orchestration**: Multi-container skills with per-service scopes and isolated networks.
+- [ ] **Notification System**: Webhook and Slack alerts for pending approvals, denied actions, and emergencies.
+- [ ] **Policy Templates & Shell Completions**: Strict/standard/permissive Rego templates; bash/zsh/fish completions.
+
+### v0.5.x (Advanced Security)
+
+- [ ] **Kata Containers / Firecracker**: MicroVM-based isolation with pluggable runtime interface.
+- [ ] **Pluggable Vault Backends**: HashiCorp Vault, Infisical, AWS Secrets Manager with ephemeral secret injection.
+- [ ] **NeMo Guardrails**: LLM prompt protection sidecar for input/output safety rails.
+- [ ] **Runtime Behaviour Profiling**: Learn normal skill behaviour, flag anomalies (new syscalls, unexpected network targets).
+- [ ] **Auth & Access Control**: Tailscale/WireGuard, OIDC (Authelia/Keycloak), RBAC roles, mTLS.
+
+### v0.6.x (Ecosystem)
+
+- [ ] **Live Threat Map Dashboard**: Real-time animated mission control with WebSocket streaming.
+- [ ] **Agent X-Ray Mode**: Deep inspection of running skills (syscalls, network, resource gauges).
+- [ ] **Security Posture Score**: Gamified scoring of configuration quality with CLI and dashboard badge.
+- [ ] **MCP Server**: Expose AegisClaw as an MCP tool for AI assistants (stdio + SSE transport).
+- [ ] **Skill Marketplace**: Community registry with ratings, security badges, and one-click install.
+- [ ] **VS Code Extension**: Sidebar panel for status, approvals, audit stream, and Rego linting.
+- [ ] **`aegisclaw simulate`**: Dry-run mode predicting skill behaviour without execution.
 
 ## 🤝 Contributing
 We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.

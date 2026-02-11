@@ -1,0 +1,81 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What is AegisClaw
+
+AegisClaw is a Go-based secure runtime for AI agents. It wraps agent "skills" (containerized commands) in a security envelope: OPA policy evaluation, human-in-the-loop TUI approval, Docker/gVisor sandboxing, age-encrypted secrets, network egress filtering, and tamper-evident audit logging.
+
+## Build & Development Commands
+
+```bash
+# Build
+go build -o aegisclaw ./cmd/aegisclaw
+
+# Run all tests
+go test -v ./...
+
+# Run a single package's tests
+go test -v ./internal/policy
+
+# Lint
+golangci-lint run
+
+# Initialize runtime config (~/.aegisclaw/)
+./aegisclaw init
+
+# Start web dashboard + REST API
+./aegisclaw serve --port 8080
+```
+
+Requires Go 1.24+ and Docker (for sandbox execution).
+
+## Architecture
+
+### Execution Flow
+
+When a skill runs, the path through the codebase is:
+
+1. **CLI** (`cmd/aegisclaw/main.go`) — Cobra command tree, REPL in `run`, REST API in `serve`
+2. **Agent** (`internal/agent/`) — Orchestrator: validates command, evaluates policy, handles approval, injects secrets, runs sandbox, streams output through redactor, logs to audit
+3. **Policy** (`internal/policy/`) — OPA/Rego engine. Evaluates scope requests → returns `Allow`, `Deny`, or `RequireApproval`
+4. **Approval** (`internal/approval/`) — Bubbletea TUI for interactive approve/deny/always-approve prompts
+5. **Sandbox** (`internal/sandbox/`) — Docker executor with hardened defaults (all caps dropped, read-only rootfs, 512MB mem, 1 CPU, 100 pids, no-new-privileges). Optional gVisor runtime
+6. **Proxy** (`internal/proxy/`) — HTTP/CONNECT egress proxy enforcing domain allowlists
+7. **Redactor** (`internal/security/redactor/`) — Wraps io.Writer to scrub secrets from output in real-time
+8. **Audit** (`internal/audit/`) — Append-only JSON log with SHA256 hash chain. `Verify()` checks integrity
+
+### Key Supporting Packages
+
+- **Scope** (`internal/scope/`) — Capability model with risk levels (Low/Medium/High/Critical). Parses `scope.name:resource` format
+- **Secrets** (`internal/secrets/`) — age encryption (X25519). Keys in `~/.aegisclaw/secrets/keys.txt`, encrypted store in `secrets.enc`
+- **Config** (`internal/config/`) — YAML config from `~/.aegisclaw/config.yaml`
+- **Skill** (`internal/skill/`) — YAML manifests defining image, commands, scopes. Ed25519 signature verification. Registry client for search/install
+- **Server** (`internal/server/`) — REST API + embedded web dashboard with SSE streaming. Endpoints under `/api/`
+- **System** (`internal/system/`) — Global lockdown state (mutex-protected bool)
+- **Telemetry** (`internal/telemetry/`) — OpenTelemetry tracing + Prometheus metrics
+
+### Skill Manifests
+
+Skills are defined in `skill.yaml` files (see `skills/` for examples):
+```yaml
+name: hello-world
+version: "1.0.0"
+image: "alpine:latest"
+scopes:
+  - "files.read:/tmp"
+commands:
+  hello:
+    args: ["echo", "Hello from AegisClaw!"]
+```
+
+Skills load from both `~/.aegisclaw/skills/` and a local `./skills/` directory.
+
+## Conventions
+
+- All core logic lives in `internal/` — nothing is exported as a public Go API
+- Default-deny security posture: network egress blocked, all container capabilities dropped, approval required unless policy explicitly allows
+- Thread safety via mutexes on shared state (audit logger, system lockdown, redactor)
+- CLI output uses emoji prefixes for visual feedback
+- Policy files are OPA Rego with package `aegisclaw.policy`
+- Version is hardcoded in `cmd/aegisclaw/main.go` (`var version`)

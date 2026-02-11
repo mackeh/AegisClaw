@@ -12,6 +12,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/agent"
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
+	"github.com/mackeh/AegisClaw/internal/doctor"
 	"github.com/mackeh/AegisClaw/internal/sandbox"
 	"github.com/mackeh/AegisClaw/internal/secrets"
 	"github.com/mackeh/AegisClaw/internal/server"
@@ -59,6 +60,8 @@ human-in-the-loop approvals, encrypted secrets, and tamper-evident audit logging
 	rootCmd.AddCommand(sandboxCmd())
 	rootCmd.AddCommand(skillsCmd())
 	rootCmd.AddCommand(serveCmd())
+	rootCmd.AddCommand(doctorCmd())
+	rootCmd.AddCommand(completionCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -538,4 +541,107 @@ func serveCmd() *cobra.Command {
 
 	cmd.Flags().IntVarP(&port, "port", "p", 8080, "Port to listen on")
 	return cmd
+}
+
+func doctorCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "doctor",
+		Short: "Diagnose AegisClaw setup and environment",
+		Long:  "Runs health checks on Docker, secrets, audit logs, policy engine, and disk space.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println("🩺  AegisClaw Health Check")
+			fmt.Println()
+
+			results := doctor.RunAll()
+
+			passed, warned, failed := 0, 0, 0
+			for _, r := range results {
+				var icon string
+				switch r.Status {
+				case doctor.StatusPass:
+					icon = "✅"
+					passed++
+				case doctor.StatusWarn:
+					icon = "⚠️ "
+					warned++
+				case doctor.StatusFail:
+					icon = "❌"
+					failed++
+				}
+
+				// Pad name to align output
+				name := r.Name
+				dots := strings.Repeat(".", 25-len(name))
+				fmt.Printf("%s %s %s %s\n", icon, name, dots, r.Detail)
+
+				if r.Fix != "" && r.Status != doctor.StatusPass {
+					fmt.Printf("   → %s\n", r.Fix)
+				}
+			}
+
+			fmt.Printf("\n%d/%d checks passed", passed, len(results))
+			if warned > 0 {
+				fmt.Printf(" (%d warning", warned)
+				if warned > 1 {
+					fmt.Print("s")
+				}
+				fmt.Print(")")
+			}
+			if failed > 0 {
+				fmt.Printf(" (%d failure", failed)
+				if failed > 1 {
+					fmt.Print("s")
+				}
+				fmt.Print(")")
+			}
+			fmt.Println()
+
+			if failed > 0 {
+				os.Exit(1)
+			}
+			return nil
+		},
+	}
+}
+
+func completionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "completion [bash|zsh|fish|powershell]",
+		Short: "Generate shell completion scripts",
+		Long: `Generate shell completion scripts for AegisClaw.
+
+To load completions:
+
+Bash:
+  $ source <(aegisclaw completion bash)
+  # Or add to ~/.bashrc:
+  $ aegisclaw completion bash > /etc/bash_completion.d/aegisclaw
+
+Zsh:
+  $ aegisclaw completion zsh > "${fpath[1]}/_aegisclaw"
+
+Fish:
+  $ aegisclaw completion fish | source
+  $ aegisclaw completion fish > ~/.config/fish/completions/aegisclaw.fish
+
+PowerShell:
+  PS> aegisclaw completion powershell | Out-String | Invoke-Expression
+`,
+		Args:      cobra.ExactArgs(1),
+		ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			switch args[0] {
+			case "bash":
+				return cmd.Root().GenBashCompletion(os.Stdout)
+			case "zsh":
+				return cmd.Root().GenZshCompletion(os.Stdout)
+			case "fish":
+				return cmd.Root().GenFishCompletion(os.Stdout, true)
+			case "powershell":
+				return cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+			default:
+				return fmt.Errorf("unsupported shell: %s", args[0])
+			}
+		},
+	}
 }
