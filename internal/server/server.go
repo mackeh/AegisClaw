@@ -40,10 +40,11 @@ type Response struct {
 // Server handles tool execution requests
 type Server struct {
 	Port int
+	Hub  *Hub
 }
 
 func NewServer(port int) *Server {
-	return &Server{Port: port}
+	return &Server{Port: port, Hub: NewHub()}
 }
 
 func (s *Server) Start() error {
@@ -61,6 +62,7 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/registry/search", s.handleRegistrySearch)
 	http.HandleFunc("/api/registry/install", s.handleRegistryInstall)
 	http.HandleFunc("/api/execute/stream", s.handleExecuteStream)
+	http.HandleFunc("/api/ws", s.Hub.ServeWS)
 	http.HandleFunc("/execute", s.handleExecute)
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -131,6 +133,8 @@ func (s *Server) handleSystemLockdown(w http.ResponseWriter, r *http.Request) {
 		go exec.KillAll(r.Context()) // Run in background to not block response
 	}
 
+	s.Hub.Broadcast(WSEvent{Type: EventLockdown, Data: map[string]string{"status": "lockdown"}})
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"lockdown"}`))
 }
@@ -143,6 +147,9 @@ func (s *Server) handleSystemUnlock(w http.ResponseWriter, r *http.Request) {
 
 	system.Unlock()
 	fmt.Println("✅ System Unlocked.")
+
+	s.Hub.Broadcast(WSEvent{Type: EventStatus, Data: map[string]string{"status": "active"}})
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"active"}`))
 }

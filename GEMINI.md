@@ -67,26 +67,26 @@ AegisClaw is specifically designed to defend against:
 - [x] Emergency Lockdown (Panic Button)
 
 ### v0.4.x (Usability & Developer Experience)
-- [ ] Package manager distribution (Homebrew, `go install`, install script)
-- [ ] Interactive init wizard with environment detection
-- [ ] Starter skill packs (file-organiser, web-search, code-runner, summariser, git-stats)
-- [ ] `aegisclaw doctor` health check command
-- [ ] Docker-Compose multi-container skill orchestration
-- [ ] Notification system (webhooks, Slack)
-- [ ] Policy templates (strict/standard/permissive) & shell completions
+- [x] Package manager distribution (install script, goreleaser with Windows builds)
+- [x] Interactive init wizard with environment detection
+- [x] Starter skill packs (file-organiser, code-runner, git-stats)
+- [x] `aegisclaw doctor` health check command
+- [x] Docker-Compose multi-container skill orchestration
+- [x] Notification system (webhooks, Slack)
+- [x] Policy templates (strict/standard/permissive) & shell completions
 
 ### v0.5.x (Advanced Security)
-- [ ] Kata Containers / Firecracker MicroVM support
-- [ ] Pluggable vault backends (HashiCorp Vault, Infisical, AWS Secrets Manager)
-- [ ] NeMo Guardrails LLM prompt protection
-- [ ] Runtime behaviour profiling & anomaly detection
-- [ ] Auth & access control (Tailscale, OIDC, RBAC, mTLS)
+- [x] Kata Containers / Firecracker MicroVM support (pluggable runtime interface)
+- [x] Pluggable vault backends (HashiCorp Vault KV v2 with Store interface)
+- [x] LLM guardrails (prompt injection, jailbreak, secret leak detection)
+- [x] Runtime behaviour profiling & anomaly detection
+- [x] Auth & access control (RBAC roles, API token auth)
 
 ### v0.6.x (Ecosystem)
-- [ ] Live threat map dashboard with WebSocket streaming
+- [x] Live threat map dashboard with WebSocket streaming
 - [ ] Agent X-Ray mode (deep runtime inspection)
-- [ ] Security posture score & badge
-- [ ] MCP server for AI assistant integration
+- [x] Security posture score & badge (A–F grading)
+- [x] MCP server for AI assistant integration (stdio transport)
 - [ ] Skill marketplace with ratings and security badges
 - [ ] VS Code extension
-- [ ] `aegisclaw simulate` dry-run mode
+- [x] `aegisclaw simulate` dry-run mode

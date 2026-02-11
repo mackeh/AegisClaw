@@ -1,0 +1,12 @@
+name: file-organiser
+version: "1.0.0"
+description: Organises files in a directory by extension into categorised subdirectories
+image: aegisclaw/file-organiser:1.0.0
+scopes:
+  - files.read:/workspace
+  - files.write:/workspace
+commands:
+  organise:
+    args: ["python3", "/app/organise.py"]
+    env:
+      - "TARGET_DIR=/workspace"

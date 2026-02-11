@@ -1,0 +1,14 @@
+name: code-runner
+version: "1.0.0"
+description: Executes code snippets in an isolated sandbox with resource limits
+image: aegisclaw/code-runner:1.0.0
+scopes:
+  - shell.exec
+  - files.read:/workspace
+  - files.write:/workspace/output
+commands:
+  run:
+    args: ["python3", "/app/runner.py"]
+    env:
+      - "TIMEOUT=30"
+      - "MAX_OUTPUT_KB=256"

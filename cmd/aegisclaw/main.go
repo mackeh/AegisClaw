@@ -13,6 +13,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/doctor"
+	"github.com/mackeh/AegisClaw/internal/guardrails"
 	"github.com/mackeh/AegisClaw/internal/mcp"
 	"github.com/mackeh/AegisClaw/internal/posture"
 	"github.com/mackeh/AegisClaw/internal/sandbox"
@@ -68,6 +69,7 @@ human-in-the-loop approvals, encrypted secrets, and tamper-evident audit logging
 	rootCmd.AddCommand(postureCmd())
 	rootCmd.AddCommand(simulateCmd())
 	rootCmd.AddCommand(mcpServerCmd())
+	rootCmd.AddCommand(guardrailsCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -791,4 +793,102 @@ Configure in your MCP settings:
 			return srv.Run(cmd.Context())
 		},
 	}
+}
+
+func guardrailsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "guardrails",
+		Short: "LLM prompt safety rails",
+		Long:  "Check prompts and responses against guardrail rules for injection, jailbreak, and data leakage.",
+	}
+
+	checkCmd := &cobra.Command{
+		Use:   "check [text]",
+		Short: "Check text against guardrail rules",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			text := strings.Join(args, " ")
+			mode, _ := cmd.Flags().GetString("mode")
+
+			engine := guardrails.NewEngine()
+
+			var result *guardrails.Result
+			switch mode {
+			case "input":
+				result = engine.CheckInput(text)
+			case "output":
+				result = engine.CheckOutput(text)
+			default:
+				return fmt.Errorf("mode must be 'input' or 'output'")
+			}
+
+			if result.Allowed {
+				fmt.Println("   ALLOWED")
+			} else {
+				fmt.Println("   BLOCKED")
+			}
+
+			if len(result.Violations) > 0 {
+				fmt.Printf("\n   Violations (%d):\n", len(result.Violations))
+				for _, v := range result.Violations {
+					fmt.Printf("     [%s] %s: %s\n", strings.ToUpper(string(v.Severity)), v.Rule, v.Message)
+				}
+			} else {
+				fmt.Println("   No violations detected.")
+			}
+
+			if result.Sanitized != "" && result.Sanitized != text {
+				fmt.Printf("\n   Sanitized output:\n   %s\n", result.Sanitized)
+			}
+
+			return nil
+		},
+	}
+	checkCmd.Flags().String("mode", "input", "Check mode: 'input' (prompt) or 'output' (response)")
+
+	scanCmd := &cobra.Command{
+		Use:   "scan",
+		Short: "Scan text from stdin against guardrail rules",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			mode, _ := cmd.Flags().GetString("mode")
+			engine := guardrails.NewEngine()
+
+			scanner := bufio.NewScanner(os.Stdin)
+			scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+
+			fmt.Fprintf(os.Stderr, "Reading from stdin (mode=%s)...\n", mode)
+
+			var lines []string
+			for scanner.Scan() {
+				lines = append(lines, scanner.Text())
+			}
+			text := strings.Join(lines, "\n")
+
+			var result *guardrails.Result
+			switch mode {
+			case "input":
+				result = engine.CheckInput(text)
+			case "output":
+				result = engine.CheckOutput(text)
+			default:
+				return fmt.Errorf("mode must be 'input' or 'output'")
+			}
+
+			if result.Allowed {
+				fmt.Println("ALLOWED")
+			} else {
+				fmt.Println("BLOCKED")
+				for _, v := range result.Violations {
+					fmt.Printf("  [%s] %s: %s\n", strings.ToUpper(string(v.Severity)), v.Rule, v.Message)
+				}
+			}
+
+			return nil
+		},
+	}
+	scanCmd.Flags().String("mode", "input", "Check mode: 'input' (prompt) or 'output' (response)")
+
+	cmd.AddCommand(checkCmd)
+	cmd.AddCommand(scanCmd)
+	return cmd
 }

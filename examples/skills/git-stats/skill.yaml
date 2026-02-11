@@ -1,0 +1,11 @@
+name: git-stats
+version: "1.0.0"
+description: Generates statistics for a git repository (commits, authors, file types)
+image: aegisclaw/git-stats:1.0.0
+scopes:
+  - files.read:/workspace
+commands:
+  stats:
+    args: ["python3", "/app/stats.py"]
+    env:
+      - "REPO_DIR=/workspace"

@@ -209,31 +209,31 @@ Troubleshooting
 
 ### v0.4.x (Usability & Developer Experience)
 
-- [ ] **Package Manager Distribution**: Homebrew tap, `go install` support, cross-platform install script.
-- [ ] **Interactive Init Wizard**: Guided first-run setup with environment detection (Docker, gVisor) and policy selection.
-- [ ] **Starter Skill Packs**: Pre-built, signed skills (file-organiser, web-search, code-runner, summariser, git-stats).
-- [ ] **`aegisclaw doctor`**: Single command to diagnose setup — Docker, secrets, audit integrity, policy engine, disk space.
-- [ ] **Docker-Compose Orchestration**: Multi-container skills with per-service scopes and isolated networks.
-- [ ] **Notification System**: Webhook and Slack alerts for pending approvals, denied actions, and emergencies.
-- [ ] **Policy Templates & Shell Completions**: Strict/standard/permissive Rego templates; bash/zsh/fish completions.
+- [x] **Package Manager Distribution**: Cross-platform install script, goreleaser with Windows builds.
+- [x] **Interactive Init Wizard**: Guided first-run setup with environment detection (Docker, gVisor) and policy selection.
+- [x] **Starter Skill Packs**: Pre-built skills (file-organiser, code-runner, git-stats) with Dockerfiles and manifests.
+- [x] **`aegisclaw doctor`**: Single command to diagnose setup — Docker, secrets, audit integrity, policy engine, disk space.
+- [x] **Docker-Compose Orchestration**: Multi-container skills with per-service scopes and isolated networks.
+- [x] **Notification System**: Webhook and Slack alerts for pending approvals, denied actions, and emergencies.
+- [x] **Policy Templates & Shell Completions**: Strict/standard/permissive Rego templates; bash/zsh/fish completions.
 
 ### v0.5.x (Advanced Security)
 
-- [ ] **Kata Containers / Firecracker**: MicroVM-based isolation with pluggable runtime interface.
-- [ ] **Pluggable Vault Backends**: HashiCorp Vault, Infisical, AWS Secrets Manager with ephemeral secret injection.
-- [ ] **NeMo Guardrails**: LLM prompt protection sidecar for input/output safety rails.
-- [ ] **Runtime Behaviour Profiling**: Learn normal skill behaviour, flag anomalies (new syscalls, unexpected network targets).
-- [ ] **Auth & Access Control**: Tailscale/WireGuard, OIDC (Authelia/Keycloak), RBAC roles, mTLS.
+- [x] **Kata Containers / Firecracker**: MicroVM-based isolation with pluggable runtime interface.
+- [x] **Pluggable Vault Backends**: HashiCorp Vault KV v2 with Store interface for future backends.
+- [x] **LLM Guardrails**: Prompt injection detection, jailbreak prevention, secret leak sanitization.
+- [x] **Runtime Behaviour Profiling**: Learn normal skill behaviour, flag anomalies (new network targets, memory/CPU spikes).
+- [x] **Auth & Access Control**: RBAC roles (admin/operator/viewer), API token auth with constant-time comparison.
 
 ### v0.6.x (Ecosystem)
 
-- [ ] **Live Threat Map Dashboard**: Real-time animated mission control with WebSocket streaming.
+- [x] **Live Threat Map Dashboard**: WebSocket hub for real-time event streaming (audit, lockdown, posture).
 - [ ] **Agent X-Ray Mode**: Deep inspection of running skills (syscalls, network, resource gauges).
-- [ ] **Security Posture Score**: Gamified scoring of configuration quality with CLI and dashboard badge.
-- [ ] **MCP Server**: Expose AegisClaw as an MCP tool for AI assistants (stdio + SSE transport).
+- [x] **Security Posture Score**: Gamified scoring of configuration quality with CLI badge (A–F grading).
+- [x] **MCP Server**: Expose AegisClaw as an MCP tool for AI assistants (stdio transport).
 - [ ] **Skill Marketplace**: Community registry with ratings, security badges, and one-click install.
 - [ ] **VS Code Extension**: Sidebar panel for status, approvals, audit stream, and Rego linting.
-- [ ] **`aegisclaw simulate`**: Dry-run mode predicting skill behaviour without execution.
+- [x] **`aegisclaw simulate`**: Dry-run mode predicting skill behaviour without execution.
 
 ## 🤝 Contributing
 We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
