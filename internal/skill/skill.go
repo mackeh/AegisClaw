@@ -18,9 +18,22 @@ type Manifest struct {
 	Version     string             `yaml:"version"`
 	Description string             `yaml:"description"`
 	Image       string             `yaml:"image"`
+	Platform    string             `yaml:"platform,omitempty"`      // "docker" (default) or "docker-compose"
+	ComposeFile string             `yaml:"compose_file,omitempty"`  // path to docker-compose.yml (relative to manifest)
 	Scopes      []string           `yaml:"scopes"`
+	Services    map[string]Service `yaml:"services,omitempty"`      // per-service scope declarations for compose
 	Commands    map[string]Command `yaml:"commands"`
-	Signature   string             `yaml:"signature,omitempty"` // Ed25519 signature of the manifest content
+	Signature   string             `yaml:"signature,omitempty"`     // Ed25519 signature of the manifest content
+}
+
+// Service describes per-service configuration in a compose skill.
+type Service struct {
+	Scopes []string `yaml:"scopes"`
+}
+
+// IsCompose returns true if this skill uses docker-compose.
+func (m *Manifest) IsCompose() bool {
+	return m.Platform == "docker-compose"
 }
 
 // RegistrySkill represents a skill available in the registry
@@ -55,8 +68,14 @@ func LoadManifest(path string) (*Manifest, error) {
 		return nil, fmt.Errorf("failed to parse skill manifest: %w", err)
 	}
 
-	if m.Name == "" || m.Image == "" {
-		return nil, fmt.Errorf("invalid manifest: name and image are required")
+	if m.Name == "" {
+		return nil, fmt.Errorf("invalid manifest: name is required")
+	}
+	if m.Image == "" && !m.IsCompose() {
+		return nil, fmt.Errorf("invalid manifest: image is required for non-compose skills")
+	}
+	if m.IsCompose() && m.ComposeFile == "" {
+		return nil, fmt.Errorf("invalid manifest: compose_file is required for docker-compose skills")
 	}
 
 	return &m, nil
