@@ -98,6 +98,31 @@ func (l *Logger) Log(action string, scopes []scope.Scope, decision string, actor
 	return l.file.Sync()
 }
 
+// LogKernelEvent records a kernel-level event from eBPF monitoring.
+func (l *Logger) LogKernelEvent(evtType string, comm string, pid uint32, details map[string]any) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	entry := Entry{
+		Timestamp: time.Now().UTC(),
+		Action:    "kernel." + evtType,
+		Actor:     comm,
+		Decision:  "observed",
+		Details:   details,
+		PrevHash:  l.lastHash,
+	}
+	entry.Details["pid"] = pid
+
+	entry.Hash = l.computeHash(entry)
+	l.lastHash = entry.Hash
+
+	data, _ := json.Marshal(entry)
+	if _, err := l.file.Write(append(data, '\n')); err != nil {
+		return err
+	}
+	return l.file.Sync()
+}
+
 // Close closes the audit log file
 func (l *Logger) Close() error {
 	l.mu.Lock()

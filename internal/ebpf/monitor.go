@@ -85,6 +85,25 @@ type MonitorStats struct {
 	Uptime        time.Duration `json:"uptime"`
 }
 
+var (
+	globalMonitor *Monitor
+	globalMu      sync.Mutex
+)
+
+// SetGlobal sets the global monitor instance.
+func SetGlobal(m *Monitor) {
+	globalMu.Lock()
+	defer globalMu.Unlock()
+	globalMonitor = m
+}
+
+// GetGlobal returns the global monitor instance.
+func GetGlobal() *Monitor {
+	globalMu.Lock()
+	defer globalMu.Unlock()
+	return globalMonitor
+}
+
 // NewMonitor creates a new eBPF monitor with the given probe configuration.
 func NewMonitor(config ProbeConfig) *Monitor {
 	return &Monitor{

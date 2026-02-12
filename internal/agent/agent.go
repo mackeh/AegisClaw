@@ -13,6 +13,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/approval"
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
+	"github.com/mackeh/AegisClaw/internal/ebpf"
 	"github.com/mackeh/AegisClaw/internal/policy"
 	"github.com/mackeh/AegisClaw/internal/sandbox"
 	"github.com/mackeh/AegisClaw/internal/scope"
@@ -153,6 +154,23 @@ func ExecuteSkillWithStream(ctx context.Context, m *skill.Manifest, cmdName stri
 			"command": cmdName,
 			"image":   m.Image,
 		})
+
+		// Start eBPF monitoring if supported (only on Linux)
+		mon := ebpf.NewMonitor(ebpf.ProbeConfig{
+			TraceSyscalls: true,
+			TraceFiles:    true,
+			TraceNetwork:  true,
+		})
+		mon.OnEvent(func(e ebpf.Event) {
+			_ = logger.LogKernelEvent(string(e.Type), e.Comm, e.PID, map[string]any{
+				"syscall": e.Syscall,
+				"path":    e.FilePath,
+			})
+		})
+		if err := mon.Start(ctx); err == nil {
+			defer mon.Stop()
+			fmt.Println("🛡️  Kernel-level eBPF monitoring active.")
+		}
 	}
 
 	if finalDecision != "allow" {
