@@ -15,7 +15,20 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: "1.22"
+          go-version: "1.24"
+
+      - name: Install eBPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm libbpf-dev
+
+      - name: Install bpf2go
+        run: go install github.com/cilium/ebpf/cmd/bpf2go@latest
+
+      - name: Generate eBPF
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          go generate ./...
 
       - name: Tidy
         run: go mod tidy
