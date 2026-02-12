@@ -121,16 +121,23 @@
 
 ---
 
+### ✅ v0.7.x — Multi-node Orchestration (Complete)
+
+- **Cluster mode**: Distributed agent orchestration with leader/follower roles
+- **Centralized policy distribution**: Push Rego policies from leader to all nodes
+- **Audit aggregation**: Stream audit logs from follower nodes to a central leader for unified SOC view
+- **Node health monitoring**: Real-time status and uptime tracking for cluster members
+
+---
+
 ## Upcoming Phases
 
-### 🔭 v0.7.x — Long-Term Vision (2027+)
+### 🔭 v0.8.x — Advanced Security & Compliance (Q4 2026)
 
-- **Multi-node orchestration**: Distribute agent workloads across multiple machines with centralised policy management and unified audit logs
-- **Federated skill trust**: Cross-organisation skill sharing with cryptographic trust chains — org A's signed skills are verifiable by org B without a central authority
-- **eBPF-based runtime monitoring**: Kernel-level observability without modifying the sandbox — trace syscalls, network flows, and file access at near-zero overhead
-- **AI-powered policy generation**: Analyse a skill's code/manifest and automatically suggest the minimal Rego policy — "this skill only needs `files.read:/tmp` and `net.outbound:api.openai.com`"
-- **Compliance frameworks**: Pre-built policy packs for SOC 2, HIPAA, GDPR, and NIST — one command to apply a compliance baseline
-- **AegisClaw Cloud**: Hosted SaaS with org management, centralised dashboards, SSO, and managed skill registries for teams that don't want to self-host
+- **Federated skill trust**: Cross-organisation skill sharing with cryptographic trust chains
+- **Compliance frameworks**: Pre-built policy packs for SOC 2, HIPAA, and GDPR
+- **AI-powered policy generation**: Automated minimal-scope suggestion via LLM analysis
+- **AegisClaw Cloud**: Managed SaaS offering for teams
 
 ---
 

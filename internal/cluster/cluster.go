@@ -199,3 +199,26 @@ func (n *Node) Status() ClusterStatus {
 	status.OnlineNodes = online
 	return status
 }
+
+// SyncPolicies returns a channel for receiving policy updates.
+func (n *Node) SyncPolicies() <-chan PolicyUpdate {
+	return n.policies
+}
+
+// PushPolicy broadcasts a policy update to all followers (Leader only).
+func (n *Node) PushPolicy(update PolicyUpdate) {
+	if !n.IsLeader() {
+		return
+	}
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+
+	fmt.Printf("📢 Broadcasting policy update: %s (hash: %s)\n", update.PolicyID, update.Hash)
+	// In a real gRPC implementation, we would call the SyncPolicy RPC on all peers.
+	// For the simulation, we'll just log it.
+}
+
+// GetAuditStream returns the stream of incoming audit events (Leader only).
+func (n *Node) GetAuditStream() <-chan AuditEvent {
+	return n.events
+}

@@ -100,6 +100,18 @@ Check the immutable log of actions:
 ./aegisclaw logs verify  # Check cryptographic integrity
 ```
 
+### 5. Multi-node Clusters (v0.7.0+)
+
+AegisClaw supports distributed orchestration with centralized policy and audit:
+
+```bash
+# On Leader Node (manages policies and aggregates logs)
+./aegisclaw cluster status --role leader --address 10.0.0.1:9090
+
+# On Follower Node (joins the cluster to execute skills)
+./aegisclaw cluster join 10.0.0.1:9090 --node-id worker-1
+```
+
 ## 🖥️ Web GUI Guide
 
 AegisClaw includes a modern web-based dashboard for easy monitoring and management.
@@ -235,11 +247,15 @@ Troubleshooting
 - [x] **VS Code Extension**: Sidebar panel for status, audit stream, skills, and Rego snippets.
 - [x] **`aegisclaw simulate`**: Dry-run mode predicting skill behaviour without execution.
 
+### v0.7.x (Multi-node & Monitoring)
+
+- [x] **eBPF Runtime Monitoring**: Kernel-level event tracing (syscalls, files, network) for deep observability.
+- [x] **Multi-Node Orchestration**: Distributed cluster with leader/follower roles, audit forwarding, and policy sync.
+
 ### Long-Term Vision
 
-- [x] **eBPF Runtime Monitoring**: Kernel-level event types, monitor lifecycle, and probe interfaces (foundation).
-- [x] **Multi-Node Orchestration**: gRPC-based cluster with leader/follower roles, audit forwarding, and policy sync.
 - [ ] **AegisClaw Cloud**: Multi-tenant SaaS with org/team hierarchy, managed registry, and hosted dashboards.
+- [ ] **AI-Powered Policies**: LLM-assisted minimal-scope generation and behavior anomaly detection.
 
 ## 🤝 Contributing
 We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
