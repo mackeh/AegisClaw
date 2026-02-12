@@ -37,11 +37,7 @@
 - Explainable audit tooltips (why an action was allowed/denied)
 - Skill store with remote registry browsing and one-click install
 
----
-
-## Upcoming Phases
-
-### 🔜 v0.4.x — Usability & Developer Experience (Q2 2026)
+### ✅ v0.4.x — Usability & Developer Experience (Complete)
 
 #### Installation & Onboarding
 
@@ -64,9 +60,7 @@
 - **`aegisclaw diff <policy-a> <policy-b>`**: Compare two Rego policies side-by-side with highlighted permission differences
 - **Shell completions**: Bash, Zsh, Fish, and PowerShell autocompletions generated from CLI metadata
 
----
-
-### 🛡️ v0.5.x — Advanced Security (Q3 2026)
+### ✅ v0.5.x — Advanced Security (Complete)
 
 #### Runtime Hardening
 
@@ -96,9 +90,7 @@
 - **mTLS for adapter communication**: Mutual TLS between AegisClaw and OpenClaw endpoints to prevent man-in-the-middle attacks
 - **API key scoping**: Per-key permissions so different integrations (CI, dashboard, CLI) have minimal required access
 
----
-
-### ✨ v0.6.x — Woo Factor & Ecosystem (Q4 2026)
+### ✅ v0.6.x — Woo Factor & Ecosystem (Complete)
 
 #### Visual & Interactive
 
@@ -129,7 +121,9 @@
 
 ---
 
-## Long-Term Vision (2027+)
+## Upcoming Phases
+
+### 🔭 v0.7.x — Long-Term Vision (2027+)
 
 - **Multi-node orchestration**: Distribute agent workloads across multiple machines with centralised policy management and unified audit logs
 - **Federated skill trust**: Cross-organisation skill sharing with cryptographic trust chains — org A's signed skills are verifiable by org B without a central authority
@@ -146,10 +140,8 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 **High-impact areas right now:**
 
-- 🐳 Adding Kata Containers / Firecracker runtime support
-- 🔐 Pluggable vault backend implementations (Vault, Infisical, Bitwarden)
-- 📝 Writing and publishing community skills with signed manifests
 - 🧪 Security testing and fuzzing of the sandbox boundary
 - 📚 Documentation improvements and tutorials
+- 🔨 Implementing eBPF probes for Linux (`internal/ebpf`)
 
 Report bugs or request features via [GitHub Issues](https://github.com/mackeh/AegisClaw/issues).
