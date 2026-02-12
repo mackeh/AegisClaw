@@ -26,6 +26,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/simulate"
 	"github.com/mackeh/AegisClaw/internal/skill"
 	"github.com/mackeh/AegisClaw/internal/telemetry"
+	"github.com/mackeh/AegisClaw/internal/updater"
 	"github.com/mackeh/AegisClaw/internal/xray"
 	"github.com/spf13/cobra"
 )
@@ -70,6 +71,7 @@ human-in-the-loop approvals, encrypted secrets, and tamper-evident audit logging
 	rootCmd.AddCommand(skillsCmd())
 	rootCmd.AddCommand(serveCmd())
 	rootCmd.AddCommand(doctorCmd())
+	rootCmd.AddCommand(upgradeCmd())
 	rootCmd.AddCommand(completionCmd())
 	rootCmd.AddCommand(postureCmd())
 	rootCmd.AddCommand(simulateCmd())
@@ -91,6 +93,12 @@ func initCmd() *cobra.Command {
 		Short: "Initialize AegisClaw configuration",
 		Long:  "Creates the ~/.aegisclaw directory with default configuration files.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Check for updates during init
+			if latest, _ := updater.Check(version); latest != "" {
+				fmt.Printf("💡 A new version of AegisClaw is available: v%s (current: v%s)\n", latest, version)
+				fmt.Println("   Run 'aegisclaw upgrade' to update.")
+				fmt.Println()
+			}
 			return runInit()
 		},
 	}
@@ -616,6 +624,37 @@ func doctorCmd() *cobra.Command {
 				os.Exit(1)
 			}
 			return nil
+		},
+	}
+}
+
+func upgradeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "upgrade",
+		Short: "Upgrade AegisClaw to the latest version",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println("🔍 Checking for updates...")
+			latest, err := updater.Check(version)
+			if err != nil {
+				return fmt.Errorf("failed to check for updates: %w", err)
+			}
+
+			if latest == "" {
+				fmt.Printf("✨ AegisClaw is already up to date (v%s)\n", version)
+				return nil
+			}
+
+			fmt.Printf("🆕 A new version is available: v%s (current: v%s)\n", latest, version)
+			fmt.Print("❓ Do you want to upgrade? [y/N] ")
+			
+			var response string
+			fmt.Scanln(&response)
+			if strings.ToLower(response) != "y" {
+				fmt.Println("❌ Upgrade cancelled.")
+				return nil
+			}
+
+			return updater.Download(version)
 		},
 	}
 }
