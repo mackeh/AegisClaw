@@ -5,6 +5,7 @@
 # Go
 *.test
 *.out
+*.o
 vendor/
 
 # IDE
