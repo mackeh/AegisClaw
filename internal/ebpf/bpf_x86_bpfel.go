@@ -54,7 +54,9 @@ type bpfSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type bpfProgramSpecs struct {
-	TraceSysEnter *ebpf.ProgramSpec `ebpf:"trace_sys_enter"`
+	TraceOpenat       *ebpf.ProgramSpec `ebpf:"trace_openat"`
+	TraceSysEnter     *ebpf.ProgramSpec `ebpf:"trace_sys_enter"`
+	TraceTcpV4Connect *ebpf.ProgramSpec `ebpf:"trace_tcp_v4_connect"`
 }
 
 // bpfMapSpecs contains maps before they are loaded into the kernel.
@@ -109,12 +111,16 @@ type bpfVariables struct {
 //
 // It can be passed to loadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type bpfPrograms struct {
-	TraceSysEnter *ebpf.Program `ebpf:"trace_sys_enter"`
+	TraceOpenat       *ebpf.Program `ebpf:"trace_openat"`
+	TraceSysEnter     *ebpf.Program `ebpf:"trace_sys_enter"`
+	TraceTcpV4Connect *ebpf.Program `ebpf:"trace_tcp_v4_connect"`
 }
 
 func (p *bpfPrograms) Close() error {
 	return _BpfClose(
+		p.TraceOpenat,
 		p.TraceSysEnter,
+		p.TraceTcpV4Connect,
 	)
 }
 
