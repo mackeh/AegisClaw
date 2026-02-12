@@ -5,7 +5,7 @@
 // This package defines the monitoring interfaces and event types.
 // Actual eBPF program loading requires a Linux kernel with BPF support.
 //
-//go:generate /home/ibmmaho/go/bin/bpf2go -target amd64 bpf bpf/monitor.c -- -I/usr/include -I/usr/include/x86_64-linux-gnu
+//go:generate bpf2go -target amd64 bpf bpf/monitor.c -- -I/usr/include -I/usr/include/x86_64-linux-gnu
 package ebpf
 
 import (

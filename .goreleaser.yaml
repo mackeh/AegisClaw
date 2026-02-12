@@ -4,6 +4,8 @@ project_name: aegisclaw
 before:
   hooks:
     - go mod tidy
+    - go install github.com/cilium/ebpf/cmd/bpf2go@latest
+    - go generate ./...
 
 builds:
   - env:
