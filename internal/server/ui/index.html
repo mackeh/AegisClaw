@@ -123,6 +123,7 @@
                             <span id="openclaw-indicator" class="w-2 h-2 rounded-full bg-zinc-500"></span>
                             <span id="openclaw-status-text" class="text-sm font-semibold text-zinc-300">Checking...</span>
                         </div>
+                        <p id="openclaw-details" class="mt-1 text-[10px] text-zinc-500 truncate max-w-[12rem]" title="Loading health details...">Loading health details...</p>
                     </div>
                     <div class="text-right">
                         <p class="text-[10px] text-zinc-600 font-mono">LATENCY</p>
@@ -259,10 +260,11 @@
             } catch (e) {}
         }
 
-        function setOpenClawHealthUI(state, latencyMS) {
+        function setOpenClawHealthUI(state, latencyMS, message) {
             const indicator = document.getElementById('openclaw-indicator');
             const statusText = document.getElementById('openclaw-status-text');
             const latencyText = document.getElementById('openclaw-latency');
+            const detailsText = document.getElementById('openclaw-details');
 
             switch (state) {
                 case 'connected':
@@ -304,19 +306,22 @@
             }
 
             latencyText.innerText = Number.isFinite(latencyMS) ? `${latencyMS}ms` : '--';
+            const details = message || 'No health details available';
+            detailsText.innerText = details;
+            detailsText.title = details;
         }
 
         async function fetchOpenClawHealth() {
             try {
                 const res = await fetch('/api/openclaw/health');
                 if (!res.ok) {
-                    setOpenClawHealthUI('unreachable');
+                    setOpenClawHealthUI('unreachable', undefined, 'Health endpoint request failed');
                     return;
                 }
                 const health = await res.json();
-                setOpenClawHealthUI(health.status, health.latency_ms);
+                setOpenClawHealthUI(health.status, health.latency_ms, health.message);
             } catch (e) {
-                setOpenClawHealthUI('unreachable');
+                setOpenClawHealthUI('unreachable', undefined, 'Health endpoint unreachable');
             }
         }
 

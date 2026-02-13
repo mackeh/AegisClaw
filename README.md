@@ -134,7 +134,7 @@ Then, open your browser and navigate to `http://localhost:8080`.
     - **Skill Store**: Search the remote registry for new skills and install them directly from the UI.
 - **Live Monitoring**:
     - **Real-time Terminal**: When running a skill, a live terminal pops up showing real-time logs with active secret redaction.
-    - **OpenClaw Adapter Health**: Dashboard OpenClaw status is backed by live API checks (`GET /api/openclaw/health`) with latency and readiness state.
+    - **OpenClaw Adapter Health**: Dashboard OpenClaw status is backed by live API checks (`GET /api/openclaw/health`) with latency, readiness state, and inline health details for troubleshooting.
     - **Audit Activity**: View the most recent actions taken by your agents.
 - **Security Tools**:
     - **Log Verification**: Click "Verify Integrity" in the audit section to cryptographically prove the logs haven't been tampered with.
