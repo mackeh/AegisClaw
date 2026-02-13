@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -18,12 +19,12 @@ type Manifest struct {
 	Version     string             `yaml:"version"`
 	Description string             `yaml:"description"`
 	Image       string             `yaml:"image"`
-	Platform    string             `yaml:"platform,omitempty"`      // "docker" (default) or "docker-compose"
-	ComposeFile string             `yaml:"compose_file,omitempty"`  // path to docker-compose.yml (relative to manifest)
+	Platform    string             `yaml:"platform,omitempty"`     // "docker" (default) or "docker-compose"
+	ComposeFile string             `yaml:"compose_file,omitempty"` // path to docker-compose.yml (relative to manifest)
 	Scopes      []string           `yaml:"scopes"`
-	Services    map[string]Service `yaml:"services,omitempty"`      // per-service scope declarations for compose
+	Services    map[string]Service `yaml:"services,omitempty"` // per-service scope declarations for compose
 	Commands    map[string]Command `yaml:"commands"`
-	Signature   string             `yaml:"signature,omitempty"`     // Ed25519 signature of the manifest content
+	Signature   string             `yaml:"signature,omitempty"` // Ed25519 signature of the manifest content
 }
 
 // Service describes per-service configuration in a compose skill.
@@ -58,7 +59,12 @@ type Command struct {
 
 // LoadManifest reads and verifies a skill manifest
 func LoadManifest(path string) (*Manifest, error) {
-	data, err := os.ReadFile(path)
+	cleanPath, err := validateManifestPath(path)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read skill manifest: %w", err)
 	}
@@ -165,6 +171,10 @@ func SearchRegistry(registryURL string) (*RegistryIndex, error) {
 
 // InstallSkill downloads and installs a skill from the registry
 func InstallSkill(skillName, destDir, registryURL string, trustKeys []string) error {
+	if err := validateSkillName(skillName); err != nil {
+		return err
+	}
+
 	index, err := SearchRegistry(registryURL)
 	if err != nil {
 		return err
@@ -204,7 +214,10 @@ func InstallSkill(skillName, destDir, registryURL string, trustKeys []string) er
 	}
 
 	// Create directory and save
-	skillPath := filepath.Join(destDir, skillName)
+	skillPath, err := resolveSkillInstallPath(destDir, skillName)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(skillPath, 0700); err != nil {
 		return fmt.Errorf("failed to create skill directory: %w", err)
 	}
@@ -217,4 +230,46 @@ func InstallSkill(skillName, destDir, registryURL string, trustKeys []string) er
 
 	fmt.Printf("✅ Successfully installed skill: %s v%s\n", m.Name, m.Version)
 	return nil
+}
+
+func validateManifestPath(path string) (string, error) {
+	clean := filepath.Clean(path)
+	if filepath.Base(clean) != "skill.yaml" {
+		return "", fmt.Errorf("invalid manifest path: expected skill.yaml")
+	}
+	for _, part := range strings.Split(filepath.ToSlash(clean), "/") {
+		if part == ".." {
+			return "", fmt.Errorf("invalid manifest path: parent traversal is not allowed")
+		}
+	}
+	return clean, nil
+}
+
+func validateSkillName(name string) error {
+	if name == "" {
+		return fmt.Errorf("invalid skill name: empty")
+	}
+	if name == "." || name == ".." {
+		return fmt.Errorf("invalid skill name: %q", name)
+	}
+	if strings.ContainsAny(name, `/\`) {
+		return fmt.Errorf("invalid skill name: path separators are not allowed")
+	}
+	return nil
+}
+
+func resolveSkillInstallPath(destDir, skillName string) (string, error) {
+	destAbs, err := filepath.Abs(destDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve destination: %w", err)
+	}
+	skillPath := filepath.Join(destAbs, skillName)
+	rel, err := filepath.Rel(destAbs, skillPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve install path: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("invalid install path for skill %q", skillName)
+	}
+	return skillPath, nil
 }
