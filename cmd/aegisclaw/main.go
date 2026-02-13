@@ -12,8 +12,8 @@ import (
 	"encoding/json"
 
 	"github.com/mackeh/AegisClaw/internal/agent"
-	"github.com/mackeh/AegisClaw/internal/cluster"
 	"github.com/mackeh/AegisClaw/internal/audit"
+	"github.com/mackeh/AegisClaw/internal/cluster"
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/doctor"
 	"github.com/mackeh/AegisClaw/internal/guardrails"
@@ -31,13 +31,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "0.7.0"
+var version = "0.7.1"
 
 func main() {
 	// Setup Telemetry
 	cfg, _ := config.LoadDefault()
 	var cleanup func(context.Context) error
-	
+
 	if cfg != nil && cfg.Telemetry.Enabled {
 		cfgDir, _ := config.DefaultConfigDir()
 		tracePath := filepath.Join(cfgDir, "traces.json")
@@ -571,7 +571,7 @@ func doctorCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose AegisClaw setup and environment",
-		Long:  "Runs health checks on Docker, secrets, audit logs, policy engine, and disk space.",
+		Long:  "Runs health checks on OpenClaw adapter connectivity, Docker, secrets, audit logs, policy engine, and disk space.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Println("🩺  AegisClaw Health Check")
 			fmt.Println()
@@ -646,7 +646,7 @@ func upgradeCmd() *cobra.Command {
 
 			fmt.Printf("🆕 A new version is available: v%s (current: v%s)\n", latest, version)
 			fmt.Print("❓ Do you want to upgrade? [y/N] ")
-			
+
 			var response string
 			fmt.Scanln(&response)
 			if strings.ToLower(response) != "y" {

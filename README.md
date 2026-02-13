@@ -224,7 +224,7 @@ Troubleshooting
 - [x] **Package Manager Distribution**: Cross-platform install script, goreleaser with Windows builds.
 - [x] **Interactive Init Wizard**: Guided first-run setup with environment detection (Docker, gVisor) and policy selection.
 - [x] **Starter Skill Packs**: Pre-built skills (file-organiser, code-runner, git-stats) with Dockerfiles and manifests.
-- [x] **`aegisclaw doctor`**: Single command to diagnose setup — Docker, secrets, audit integrity, policy engine, disk space.
+- [x] **`aegisclaw doctor`**: Single command to diagnose setup — OpenClaw adapter health, Docker, secrets, audit integrity, policy engine, disk space.
 - [x] **Docker-Compose Orchestration**: Multi-container skills with per-service scopes and isolated networks.
 - [x] **Notification System**: Webhook and Slack alerts for pending approvals, denied actions, and emergencies.
 - [x] **Policy Templates & Shell Completions**: Strict/standard/permissive Rego templates; bash/zsh/fish completions.

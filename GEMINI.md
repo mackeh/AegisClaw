@@ -70,7 +70,7 @@ AegisClaw is specifically designed to defend against:
 - [x] Package manager distribution (install script, goreleaser with Windows builds)
 - [x] Interactive init wizard with environment detection
 - [x] Starter skill packs (file-organiser, code-runner, git-stats)
-- [x] `aegisclaw doctor` health check command
+- [x] `aegisclaw doctor` health check command (includes OpenClaw adapter validation)
 - [x] Docker-Compose multi-container skill orchestration
 - [x] Notification system (webhooks, Slack)
 - [x] Policy templates (strict/standard/permissive) & shell completions

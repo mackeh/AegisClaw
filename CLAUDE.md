@@ -54,7 +54,7 @@ When a skill runs, the path through the codebase is:
 - **Server** (`internal/server/`) — REST API + embedded web dashboard with SSE streaming and WebSocket hub (`/api/ws`). Endpoints under `/api/`
 - **Auth** (`internal/server/auth.go`) — RBAC middleware (admin/operator/viewer) with constant-time token comparison
 - **Notifications** (`internal/notifications/`) — Webhook (HMAC-SHA256) and Slack notifiers with event-based dispatch
-- **Doctor** (`internal/doctor/`) — Health checks: Docker, gVisor, config, policy, secrets, audit, disk space
+- **Doctor** (`internal/doctor/`) — Health checks: OpenClaw adapter config/connectivity + API secret presence, Docker, gVisor, config, policy, secrets, audit, disk space
 - **Profiling** (`internal/profiling/`) — Behaviour profiling with learn/enforce modes. Detects anomalies in network targets, file access, memory, CPU
 - **Posture** (`internal/posture/`) — Security posture scoring (A–F grade) across sandboxing, secrets, policy, audit, network
 - **Simulate** (`internal/simulate/`) — Dry-run skill analysis: scope evaluation, risk assessment, policy check without execution

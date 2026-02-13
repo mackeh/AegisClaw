@@ -127,6 +127,7 @@
 - **Centralized policy distribution**: Push Rego policies from leader to all nodes
 - **Audit aggregation**: Stream audit logs from follower nodes to a central leader for unified SOC view
 - **Node health monitoring**: Real-time status and uptime tracking for cluster members
+- **Enhanced `aegisclaw doctor`**: OpenClaw adapter diagnostics now validate config syntax, endpoint reachability, and referenced API secret presence
 
 ---
 
