@@ -4,7 +4,9 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -64,7 +66,13 @@ func LoadManifest(path string) (*Manifest, error) {
 		return nil, err
 	}
 
-	data, err := os.ReadFile(cleanPath)
+	root, err := os.OpenRoot(filepath.Dir(cleanPath))
+	if err != nil {
+		return nil, fmt.Errorf("failed to open manifest directory: %w", err)
+	}
+	defer root.Close()
+
+	data, err := fs.ReadFile(root.FS(), "skill.yaml")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read skill manifest: %w", err)
 	}
@@ -214,18 +222,32 @@ func InstallSkill(skillName, destDir, registryURL string, trustKeys []string) er
 	}
 
 	// Create directory and save
-	skillPath, err := resolveSkillInstallPath(destDir, skillName)
+	root, err := os.OpenRoot(destDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open destination directory: %w", err)
 	}
-	if err := os.MkdirAll(skillPath, 0700); err != nil {
+	defer root.Close()
+
+	if err := root.Mkdir(skillName, 0700); err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("failed to create skill directory: %w", err)
 	}
 
-	manifestPath := filepath.Join(skillPath, "skill.yaml")
-	data, _ := yaml.Marshal(m)
-	if err := os.WriteFile(manifestPath, data, 0600); err != nil {
+	data, err := yaml.Marshal(m)
+	if err != nil {
+		return fmt.Errorf("failed to encode skill manifest: %w", err)
+	}
+
+	manifestPath := filepath.Join(skillName, "skill.yaml")
+	f, err := root.OpenFile(manifestPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
 		return fmt.Errorf("failed to save skill manifest: %w", err)
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return fmt.Errorf("failed to write skill manifest: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("failed to finalize skill manifest: %w", err)
 	}
 
 	fmt.Printf("✅ Successfully installed skill: %s v%s\n", m.Name, m.Version)
@@ -256,20 +278,4 @@ func validateSkillName(name string) error {
 		return fmt.Errorf("invalid skill name: path separators are not allowed")
 	}
 	return nil
-}
-
-func resolveSkillInstallPath(destDir, skillName string) (string, error) {
-	destAbs, err := filepath.Abs(destDir)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve destination: %w", err)
-	}
-	skillPath := filepath.Join(destAbs, skillName)
-	rel, err := filepath.Rel(destAbs, skillPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve install path: %w", err)
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("invalid install path for skill %q", skillName)
-	}
-	return skillPath, nil
 }

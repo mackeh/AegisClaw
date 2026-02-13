@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -95,16 +94,5 @@ func TestValidateSkillName(t *testing.T) {
 		if err := validateSkillName(name); err == nil {
 			t.Fatalf("expected invalid name %q to fail", name)
 		}
-	}
-}
-
-func TestResolveSkillInstallPath(t *testing.T) {
-	tmp := t.TempDir()
-	p, err := resolveSkillInstallPath(tmp, "safe-skill")
-	if err != nil {
-		t.Fatalf("expected resolved path, got error %v", err)
-	}
-	if !strings.HasPrefix(p, tmp) {
-		t.Fatalf("expected path %q under %q", p, tmp)
 	}
 }
