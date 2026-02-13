@@ -251,7 +251,7 @@ Troubleshooting
 
 ### v0.7.x (Multi-node & Monitoring)
 
-- [x] **eBPF Runtime Monitoring**: Kernel-level event tracing (syscalls, files, network) for deep observability.
+- [x] **eBPF Runtime Monitoring**: Kernel-level event tracing (syscalls, files, network) for deep observability (currently active on Linux x86 targets).
 - [x] **Multi-Node Orchestration**: Distributed cluster with leader/follower roles, audit forwarding, and policy sync.
 
 ### Long-Term Vision

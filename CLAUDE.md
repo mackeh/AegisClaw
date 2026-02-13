@@ -66,7 +66,7 @@ When a skill runs, the path through the codebase is:
 - **System** (`internal/system/`) — Global lockdown state (mutex-protected bool)
 - **Telemetry** (`internal/telemetry/`) — OpenTelemetry tracing + Prometheus metrics
 - **VS Code Extension** (`vscode-extension/`) — TypeScript extension with status sidebar, audit stream, skills tree, and Rego snippets
-- **eBPF** (`internal/ebpf/`) — Kernel-level runtime monitoring: syscall, network, file, and process event types with Monitor lifecycle. Linux-only probe loading
+- **eBPF** (`internal/ebpf/`) — Kernel-level runtime monitoring: syscall, network, file, and process event types with Monitor lifecycle. Active probe loading currently targets Linux x86; other platforms/arches fall back gracefully
 - **Cluster** (`internal/cluster/`) — Multi-node orchestration via gRPC: leader/follower roles, peer registration, audit forwarding, policy sync
 
 ### Skill Manifests

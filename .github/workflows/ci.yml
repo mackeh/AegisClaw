@@ -36,5 +36,8 @@ jobs:
       - name: Build
         run: go build -v ./cmd/aegisclaw
 
+      - name: Cross-build (linux/arm64)
+        run: GOOS=linux GOARCH=arm64 go build -v ./cmd/aegisclaw
+
       - name: Test
         run: go test -v ./...
