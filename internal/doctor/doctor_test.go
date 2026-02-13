@@ -157,7 +157,7 @@ func TestCheckOpenClawAdapter_ReachableWithSecret(t *testing.T) {
 	if result.Status != StatusPass {
 		t.Fatalf("expected StatusPass, got %d (%s)", result.Status, result.Detail)
 	}
-	if !strings.Contains(result.Detail, "secret 'OPENCLAW_API_KEY' loaded") {
+	if !strings.Contains(result.Detail, "adapter ready") {
 		t.Fatalf("unexpected detail: %s", result.Detail)
 	}
 }
@@ -186,7 +186,7 @@ func TestCheckOpenClawAdapter_ReachableMissingSecret(t *testing.T) {
 	if result.Status != StatusWarn {
 		t.Fatalf("expected StatusWarn, got %d (%s)", result.Status, result.Detail)
 	}
-	if !strings.Contains(result.Detail, "secret 'OPENCLAW_API_KEY' not found") {
+	if !strings.Contains(result.Detail, "configured api_key_secret is missing") {
 		t.Fatalf("unexpected detail: %s", result.Detail)
 	}
 }

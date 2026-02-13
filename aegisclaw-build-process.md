@@ -243,7 +243,7 @@
 
 **Estimated effort:** 1 week  
 **Dependencies:** None  
-**Key files:** `cmd/aegisclaw/main.go`, `internal/doctor/`
+**Key files:** `cmd/aegisclaw/main.go`, `internal/doctor/`, `internal/openclaw/`
 
 ---
 

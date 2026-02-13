@@ -55,6 +55,7 @@ When a skill runs, the path through the codebase is:
 - **Auth** (`internal/server/auth.go`) — RBAC middleware (admin/operator/viewer) with constant-time token comparison
 - **Notifications** (`internal/notifications/`) — Webhook (HMAC-SHA256) and Slack notifiers with event-based dispatch
 - **Doctor** (`internal/doctor/`) — Health checks: OpenClaw adapter config/connectivity + API secret presence, Docker, gVisor, config, policy, secrets, audit, disk space
+- **OpenClaw** (`internal/openclaw/`) — Adapter health model used by CLI doctor and `/api/openclaw/health` (status, latency, readiness, secret wiring)
 - **Profiling** (`internal/profiling/`) — Behaviour profiling with learn/enforce modes. Detects anomalies in network targets, file access, memory, CPU
 - **Posture** (`internal/posture/`) — Security posture scoring (A–F grade) across sandboxing, secrets, policy, audit, network
 - **Simulate** (`internal/simulate/`) — Dry-run skill analysis: scope evaluation, risk assessment, policy check without execution

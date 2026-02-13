@@ -10,6 +10,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/agent"
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
+	"github.com/mackeh/AegisClaw/internal/openclaw"
 	"github.com/mackeh/AegisClaw/internal/sandbox"
 	"github.com/mackeh/AegisClaw/internal/server/ui"
 	"github.com/mackeh/AegisClaw/internal/skill"
@@ -60,6 +61,7 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/system/lockdown", s.handleSystemLockdown)
 	http.HandleFunc("/api/system/unlock", s.handleSystemUnlock)
 	http.HandleFunc("/api/system/status", s.handleSystemStatus)
+	http.HandleFunc("/api/openclaw/health", s.handleOpenClawHealth)
 	http.HandleFunc("/api/registry/search", s.handleRegistrySearch)
 	http.HandleFunc("/api/registry/install", s.handleRegistryInstall)
 	http.HandleFunc("/api/execute/stream", s.handleExecuteStream)
@@ -110,7 +112,6 @@ func (s *Server) handleListLogs(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(entries)
 }
 
-
 func (s *Server) handleXray(w http.ResponseWriter, r *http.Request) {
 	inspector, err := xray.NewInspector()
 	if err != nil {
@@ -138,6 +139,24 @@ func (s *Server) handleSystemStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": status})
+}
+
+func (s *Server) handleOpenClawHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cfgDir, err := config.DefaultConfigDir()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to resolve config directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	health := openclaw.CheckHealth(cfgDir)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(health)
 }
 
 func (s *Server) handleSystemLockdown(w http.ResponseWriter, r *http.Request) {
@@ -179,9 +198,9 @@ func (s *Server) handleSystemUnlock(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleVerifyLogs(w http.ResponseWriter, r *http.Request) {
 	cfgDir, _ := config.DefaultConfigDir()
 	logPath := filepath.Join(cfgDir, "audit", "audit.log")
-	
+
 	valid, err := audit.Verify(logPath)
-	
+
 	status := "valid"
 	message := "Audit log integrity verified (hash chain is unbroken)."
 	if err != nil {
@@ -289,7 +308,7 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 	// For simplicity, args are not parsed from query yet, assuming no args or simple string split if needed
 	// Better way: accept POST with JSON body for args, but EventSource implies GET.
 	// We'll stick to basic no-args for "Whoo" demo or simple query param
-	
+
 	if skillName == "" || cmdName == "" {
 		fmt.Fprintf(w, "event: error\ndata: Missing skill or command\n\n")
 		return
@@ -318,7 +337,7 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Execute
 	_, err := agent.ExecuteSkillWithStream(r.Context(), m, cmdName, []string{}, sseWriter, sseWriter)
-	
+
 	if err != nil {
 		fmt.Fprintf(w, "event: error\ndata: %s\n\n", err.Error())
 	} else {
@@ -334,14 +353,14 @@ type SSEWriter struct {
 
 func (s *SSEWriter) Write(p []byte) (n int, err error) {
 	// SSE format: data: <content>\n\n
-	// We need to be careful with newlines. 
+	// We need to be careful with newlines.
 	// Simple approach: write line by line or raw chunk.
 	// Raw chunk is better for terminal stream, client handles buffering.
 	// We'll treat the payload as raw data.
-	
+
 	// Escape newlines for SSE data field if necessary, or just send raw lines.
 	// Actually, for a terminal stream, it's easier to send JSON chunks or just raw lines prefixed with data:
-	
+
 	// Let's send it as a JSON object to handle special chars safely
 	payload, _ := json.Marshal(string(p))
 	fmt.Fprintf(s.w, "data: %s\n\n", payload)
@@ -363,7 +382,7 @@ func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Find the skill manifest
 	cfgDir, _ := config.DefaultConfigDir()
-	
+
 	// Check standard locations
 	searchDirs := []string{
 		filepath.Join(cfgDir, "skills"),

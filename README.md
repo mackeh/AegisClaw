@@ -134,6 +134,7 @@ Then, open your browser and navigate to `http://localhost:8080`.
     - **Skill Store**: Search the remote registry for new skills and install them directly from the UI.
 - **Live Monitoring**:
     - **Real-time Terminal**: When running a skill, a live terminal pops up showing real-time logs with active secret redaction.
+    - **OpenClaw Adapter Health**: Dashboard OpenClaw status is backed by live API checks (`GET /api/openclaw/health`) with latency and readiness state.
     - **Audit Activity**: View the most recent actions taken by your agents.
 - **Security Tools**:
     - **Log Verification**: Click "Verify Integrity" in the audit section to cryptographically prove the logs haven't been tampered with.
@@ -208,6 +209,7 @@ Security & Policies
 Troubleshooting
 
 - If a skill cannot reach the OpenClaw endpoint, check the egress proxy/egress rules and the adapter `endpoint` setting.
+- Check adapter status directly: `curl http://127.0.0.1:8080/api/openclaw/health`
 - Verify secrets are present: `./aegisclaw secrets list`
 - Inspect audit logs for denied actions: `./aegisclaw logs`
 

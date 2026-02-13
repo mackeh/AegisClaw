@@ -2,21 +2,15 @@
 package doctor
 
 import (
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
-	"github.com/mackeh/AegisClaw/internal/secrets"
-	"gopkg.in/yaml.v3"
+	"github.com/mackeh/AegisClaw/internal/openclaw"
 )
 
 // Status represents the result of a health check.
@@ -249,130 +243,53 @@ func checkAuditLog(cfgDir string) Result {
 	}
 }
 
-type openClawAdapterConfig struct {
-	Enabled      bool   `yaml:"enabled"`
-	Endpoint     string `yaml:"endpoint"`
-	APIKeySecret string `yaml:"api_key_secret"`
-	TimeoutMS    int    `yaml:"timeout_ms"`
-}
-
 func checkOpenClawAdapter(cfgDir string) Result {
-	adapterPath := filepath.Join(cfgDir, "adapters", "openclaw.yaml")
-	data, err := os.ReadFile(adapterPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return Result{
-				Name:   "OpenClaw adapter",
-				Status: StatusWarn,
-				Detail: "not configured",
-				Fix:    "Create ~/.aegisclaw/adapters/openclaw.yaml (see README OpenClaw integration)",
-			}
-		}
-		return Result{
-			Name:   "OpenClaw adapter",
-			Status: StatusFail,
-			Detail: fmt.Sprintf("failed to read config: %v", err),
-			Fix:    "Ensure ~/.aegisclaw/adapters/openclaw.yaml is readable",
-		}
-	}
+	h := openclaw.CheckHealth(cfgDir)
 
-	var cfg openClawAdapterConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return Result{
-			Name:   "OpenClaw adapter",
-			Status: StatusFail,
-			Detail: fmt.Sprintf("invalid config: %v", err),
-			Fix:    "Fix YAML syntax in ~/.aegisclaw/adapters/openclaw.yaml",
-		}
-	}
-
-	if !cfg.Enabled {
-		return Result{
-			Name:   "OpenClaw adapter",
-			Status: StatusWarn,
-			Detail: "configured but disabled",
-			Fix:    "Set enabled: true to enable OpenClaw integration",
-		}
-	}
-
-	endpoint := strings.TrimSpace(cfg.Endpoint)
-	if endpoint == "" {
-		return Result{
-			Name:   "OpenClaw adapter",
-			Status: StatusFail,
-			Detail: "enabled but endpoint is empty",
-			Fix:    "Set endpoint: http://127.0.0.1:8080 (or your OpenClaw endpoint)",
-		}
-	}
-
-	u, err := url.Parse(endpoint)
-	if err != nil || u.Scheme == "" || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return Result{
-			Name:   "OpenClaw adapter",
-			Status: StatusFail,
-			Detail: fmt.Sprintf("invalid endpoint: %q", endpoint),
-			Fix:    "Use a full HTTP/HTTPS URL, e.g. http://127.0.0.1:8080",
-		}
-	}
-
-	timeout := 3 * time.Second
-	if cfg.TimeoutMS > 0 {
-		timeout = time.Duration(cfg.TimeoutMS) * time.Millisecond
-	}
-
-	client := &http.Client{Timeout: timeout}
-	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
-	if err != nil {
-		return Result{
-			Name:   "OpenClaw adapter",
-			Status: StatusFail,
-			Detail: fmt.Sprintf("invalid endpoint request: %v", err),
-			Fix:    "Check endpoint URL in adapter config",
-		}
-	}
-
-	start := time.Now()
-	resp, err := client.Do(req)
-	if err != nil {
-		return Result{
-			Name:   "OpenClaw adapter",
-			Status: StatusWarn,
-			Detail: fmt.Sprintf("enabled but endpoint unreachable: %v", err),
-			Fix:    "Start OpenClaw service or verify adapter endpoint/port",
-		}
-	}
-	_, _ = io.Copy(io.Discard, resp.Body)
-	_ = resp.Body.Close()
-	latency := time.Since(start).Milliseconds()
-
-	secretName := strings.TrimSpace(cfg.APIKeySecret)
-	if secretName == "" {
-		return Result{
-			Name:   "OpenClaw adapter",
-			Status: StatusWarn,
-			Detail: fmt.Sprintf("reachable (%s, %dms), api_key_secret not set", resp.Status, latency),
-			Fix:    "Set api_key_secret in adapter config and run: aegisclaw secrets set <KEY> <VALUE>",
-		}
-	}
-
-	secretMgr := secrets.NewManager(filepath.Join(cfgDir, "secrets"))
-	if _, err := secretMgr.Get(secretName); err != nil {
-		return Result{
-			Name:   "OpenClaw adapter",
-			Status: StatusWarn,
-			Detail: fmt.Sprintf("reachable (%s, %dms), secret '%s' not found", resp.Status, latency, secretName),
-			Fix:    fmt.Sprintf("Run: aegisclaw secrets set %s <value>", secretName),
-		}
-	}
-
-	status := StatusPass
-	if resp.StatusCode >= 500 {
-		status = StatusWarn
-	}
-
-	return Result{
+	result := Result{
 		Name:   "OpenClaw adapter",
-		Status: status,
-		Detail: fmt.Sprintf("reachable (%s, %dms), secret '%s' loaded", resp.Status, latency, secretName),
+		Detail: h.Message,
 	}
+
+	switch h.Status {
+	case openclaw.StatusConnected:
+		result.Status = StatusPass
+		result.Detail = fmt.Sprintf("reachable (%d, %dms), adapter ready", h.HTTPStatus, h.LatencyMS)
+	case openclaw.StatusNotConfigured:
+		result.Status = StatusWarn
+		result.Fix = "Create ~/.aegisclaw/adapters/openclaw.yaml (see README OpenClaw integration)"
+	case openclaw.StatusDisabled:
+		result.Status = StatusWarn
+		result.Fix = "Set enabled: true to enable OpenClaw integration"
+	case openclaw.StatusInvalidConfig:
+		result.Status = StatusFail
+		result.Fix = "Fix YAML syntax in ~/.aegisclaw/adapters/openclaw.yaml"
+	case openclaw.StatusInvalidEP:
+		result.Status = StatusFail
+		result.Fix = "Set endpoint to a valid HTTP/HTTPS URL (for example http://127.0.0.1:8080)"
+	case openclaw.StatusUnreachable:
+		result.Status = StatusWarn
+		result.Fix = "Start OpenClaw service or verify adapter endpoint/port"
+	case openclaw.StatusConfigError:
+		result.Status = StatusFail
+		result.Fix = "Ensure ~/.aegisclaw/adapters/openclaw.yaml is readable"
+	default:
+		result.Status = StatusWarn
+		result.Fix = "Check OpenClaw adapter config and connectivity"
+	}
+
+	if h.Status == openclaw.StatusDegraded {
+		result.Status = StatusWarn
+		switch {
+		case !h.SecretConfigured:
+			result.Fix = "Set api_key_secret in adapter config and run: aegisclaw secrets set <KEY> <VALUE>"
+		case !h.SecretPresent:
+			result.Fix = "Set the configured API key in secrets: aegisclaw secrets set <KEY> <VALUE>"
+		default:
+			result.Fix = "Check OpenClaw endpoint health and authentication configuration"
+		}
+		result.Detail = fmt.Sprintf("reachable (%d, %dms), %s", h.HTTPStatus, h.LatencyMS, h.Message)
+	}
+
+	return result
 }

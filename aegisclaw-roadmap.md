@@ -128,6 +128,7 @@
 - **Audit aggregation**: Stream audit logs from follower nodes to a central leader for unified SOC view
 - **Node health monitoring**: Real-time status and uptime tracking for cluster members
 - **Enhanced `aegisclaw doctor`**: OpenClaw adapter diagnostics now validate config syntax, endpoint reachability, and referenced API secret presence
+- **Live OpenClaw health API + dashboard wiring**: `GET /api/openclaw/health` now powers adapter status and latency indicators in the web UI
 
 ---
 

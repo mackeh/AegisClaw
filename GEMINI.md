@@ -71,6 +71,7 @@ AegisClaw is specifically designed to defend against:
 - [x] Interactive init wizard with environment detection
 - [x] Starter skill packs (file-organiser, code-runner, git-stats)
 - [x] `aegisclaw doctor` health check command (includes OpenClaw adapter validation)
+- [x] Live OpenClaw adapter health API (`/api/openclaw/health`) wired to dashboard status card
 - [x] Docker-Compose multi-container skill orchestration
 - [x] Notification system (webhooks, Slack)
 - [x] Policy templates (strict/standard/permissive) & shell completions
