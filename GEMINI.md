@@ -29,7 +29,7 @@ AegisClaw is specifically designed to defend against:
 ## 🛠️ Building and Running
 
 ### Prerequisites
-- Go 1.22+
+- Go 1.24+
 - Docker
 
 ### Key Commands

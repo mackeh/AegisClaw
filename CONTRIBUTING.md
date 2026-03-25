@@ -24,7 +24,7 @@ First off, thanks for taking the time to contribute! 🎉
 
 ## Development Setup
 
-1. **Prerequisites**: Go 1.22+, Docker (for sandbox testing).
+1. **Prerequisites**: Go 1.24+, Docker (for sandbox testing).
 2. **Setup**:
    ```bash
    git clone https://github.com/your-fork/AegisClaw.git

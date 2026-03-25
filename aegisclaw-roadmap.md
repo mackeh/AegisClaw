@@ -1,6 +1,6 @@
 # AegisClaw Roadmap
 
-> Last updated: February 2026
+> Last updated: March 2026
 
 ---
 
@@ -134,7 +134,15 @@
 
 ## Upcoming Phases
 
-### 🔭 v0.8.x — Advanced Security & Compliance (Q4 2026)
+### ✅ v0.8.0 — Codebase Cleanup (Complete)
+
+- Removed unused `notifications` and `profiling` packages
+- Removed dead eBPF global singleton functions
+- Cleaned up stale MCP server version and unused imports
+- Updated all documentation and Go version requirements
+- Removed stale planning documents
+
+### 🔭 v0.9.x — Advanced Security & Compliance (Q4 2026)
 
 - **Federated skill trust**: Cross-organisation skill sharing with cryptographic trust chains
 - **Compliance frameworks**: Pre-built policy packs for SOC 2, HIPAA, and GDPR

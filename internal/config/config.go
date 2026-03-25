@@ -17,16 +17,6 @@ type Config struct {
 	Network       NetworkConfig        `yaml:"network"`
 	Registry      RegistryConfig       `yaml:"registry"`
 	Telemetry     TelemetryConfig      `yaml:"telemetry"`
-	Notifications []NotificationConfig `yaml:"notifications,omitempty"`
-}
-
-// NotificationConfig defines a notification channel.
-type NotificationConfig struct {
-	Type       string   `yaml:"type"`                  // "webhook" or "slack"
-	URL        string   `yaml:"url,omitempty"`         // webhook URL
-	Secret     string   `yaml:"secret,omitempty"`      // HMAC signing secret
-	WebhookURL string   `yaml:"webhook_url,omitempty"` // Slack webhook URL
-	Events     []string `yaml:"events"`                // events to subscribe to
 }
 
 // TelemetryConfig contains observability settings

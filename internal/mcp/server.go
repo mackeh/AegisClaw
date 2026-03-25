@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -132,7 +131,7 @@ func (s *Server) handleRequest(ctx context.Context, req request) response {
 				},
 				"serverInfo": map[string]interface{}{
 					"name":    "aegisclaw",
-					"version": "0.5.1",
+					"version": "0.8.0",
 				},
 			},
 		}
@@ -306,5 +305,3 @@ func (s *Server) writeError(id json.RawMessage, code int, message string) {
 	s.writeResponse(resp)
 }
 
-// Ensure io is used (it's used for doc comments about the transport)
-var _ io.Reader

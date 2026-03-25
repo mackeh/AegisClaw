@@ -254,6 +254,14 @@ Troubleshooting
 - [x] **eBPF Runtime Monitoring**: Kernel-level event tracing (syscalls, files, network) for deep observability (currently active on Linux x86 targets).
 - [x] **Multi-Node Orchestration**: Distributed cluster with leader/follower roles, audit forwarding, and policy sync.
 
+### v0.8.0 (Codebase Cleanup)
+
+- [x] Removed unused `notifications` and `profiling` packages
+- [x] Removed dead eBPF global singleton functions
+- [x] Fixed MCP server version mismatch and unused imports
+- [x] Updated documentation and Go version requirements
+- [x] Cleaned up stale planning documents and config types
+
 ### Long-Term Vision
 
 - [ ] **AegisClaw Cloud**: Multi-tenant SaaS with org/team hierarchy, managed registry, and hosted dashboards.

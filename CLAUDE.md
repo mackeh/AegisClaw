@@ -49,14 +49,12 @@ When a skill runs, the path through the codebase is:
 
 - **Scope** (`internal/scope/`) — Capability model with risk levels (Low/Medium/High/Critical). Parses `scope.name:resource` format
 - **Secrets** (`internal/secrets/`) — age encryption (X25519) + `Store` interface. `VaultStore` for HashiCorp Vault KV v2
-- **Config** (`internal/config/`) — YAML config from `~/.aegisclaw/config.yaml`. Includes notification and auth config sections
+- **Config** (`internal/config/`) — YAML config from `~/.aegisclaw/config.yaml`. Includes auth config sections
 - **Skill** (`internal/skill/`) — YAML manifests defining image, commands, scopes. Supports `platform: docker-compose` with per-service scopes. Ed25519 signature verification. Registry client for search/install
 - **Server** (`internal/server/`) — REST API + embedded web dashboard with SSE streaming and WebSocket hub (`/api/ws`). Endpoints under `/api/`
 - **Auth** (`internal/server/auth.go`) — RBAC middleware (admin/operator/viewer) with constant-time token comparison
-- **Notifications** (`internal/notifications/`) — Webhook (HMAC-SHA256) and Slack notifiers with event-based dispatch
 - **Doctor** (`internal/doctor/`) — Health checks: OpenClaw adapter config/connectivity + API secret presence, Docker, gVisor, config, policy, secrets, audit, disk space
 - **OpenClaw** (`internal/openclaw/`) — Adapter health model used by CLI doctor and `/api/openclaw/health` (status, latency, readiness, secret wiring)
-- **Profiling** (`internal/profiling/`) — Behaviour profiling with learn/enforce modes. Detects anomalies in network targets, file access, memory, CPU
 - **Posture** (`internal/posture/`) — Security posture scoring (A–F grade) across sandboxing, secrets, policy, audit, network
 - **Simulate** (`internal/simulate/`) — Dry-run skill analysis: scope evaluation, risk assessment, policy check without execution
 - **Guardrails** (`internal/guardrails/`) — LLM prompt safety: injection detection, jailbreak prevention, secret leak sanitization
@@ -93,4 +91,4 @@ Skills load from both `~/.aegisclaw/skills/` and a local `./skills/` directory. 
 - CLI output uses emoji prefixes for visual feedback
 - Policy files are OPA Rego with package `aegisclaw.policy`
 - Version is hardcoded in `cmd/aegisclaw/main.go` (`var version`) and `internal/mcp/server.go`
-- Test coverage spans 26 packages; only `agent`, `approval`, `server/ui` lack tests (agent requires Docker, approval is TUI-interactive, ui is an embed directive)
+- Test coverage spans 24 packages; only `agent`, `approval`, `server/ui` lack tests (agent requires Docker, approval is TUI-interactive, ui is an embed directive)

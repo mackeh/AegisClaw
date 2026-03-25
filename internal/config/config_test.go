@@ -113,31 +113,3 @@ func TestSave_Permissions(t *testing.T) {
 	}
 }
 
-func TestConfig_Notifications(t *testing.T) {
-	tmp := t.TempDir()
-	path := filepath.Join(tmp, "config.yaml")
-
-	cfg := &Config{
-		Version: "0.5.0",
-		Notifications: []NotificationConfig{
-			{Type: "webhook", URL: "https://hook.example.com", Events: []string{"lockdown"}},
-			{Type: "slack", WebhookURL: "https://hooks.slack.com/services/xxx", Events: []string{"approval.pending"}},
-		},
-	}
-
-	if err := cfg.Save(path); err != nil {
-		t.Fatalf("save error: %v", err)
-	}
-
-	loaded, err := Load(path)
-	if err != nil {
-		t.Fatalf("load error: %v", err)
-	}
-
-	if len(loaded.Notifications) != 2 {
-		t.Errorf("expected 2 notifications, got %d", len(loaded.Notifications))
-	}
-	if loaded.Notifications[0].Type != "webhook" {
-		t.Errorf("expected type 'webhook', got '%s'", loaded.Notifications[0].Type)
-	}
-}
