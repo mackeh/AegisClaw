@@ -21,6 +21,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
   exfiltration directives (`internal/guardrails/indirect.go`).
 - **`guardrails check`/`scan --mode data`**: new CLI mode with a `--source`
   label for scanning untrusted data through the indirect-injection rails.
+- **Guardrail pipeline integration**: the agent now scans every skill's output
+  with the indirect-injection rails before it is returned, so poisoned data
+  cannot silently re-enter an agent's model context. Configurable via the new
+  `guardrails.mode` config key (`off` / `warn` / `block`, default `warn`);
+  violations are written to the audit log as `guardrail.violation` entries
+  (`internal/agent/guardrails.go`).
 - Expanded direct injection and jailbreak pattern sets (system-prompt
   exfiltration, role confusion, `god/admin/debug` mode, hypothetical-framing
   jailbreaks).

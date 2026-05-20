@@ -158,6 +158,11 @@ The first slice of the v0.9.x threat-hardening work (see Threat Landscape below)
 - **CLI `guardrails check/scan --mode data`** with a `--source` origin label.
 - **Expanded pattern sets** for direct injection and jailbreaks (system-prompt
   exfiltration, role confusion, privilege-mode jailbreaks, hypothetical framing).
+- **Guardrail pipeline integration**: the agent now scans every skill's output
+  for indirect prompt injection before returning it, so poisoned data cannot
+  silently re-enter an agent's model context. Configurable via `guardrails.mode`
+  (`off`/`warn`/`block`, default `warn`); violations are written to the audit
+  log. The guardrails engine is no longer CLI-only.
 
 ---
 
@@ -189,10 +194,6 @@ skills. v0.9.x prioritises these:
 
 ### 🔭 v0.9.x — Remaining Threat-Hardening Work
 
-- **Guardrail pipeline integration**: wire the guardrails engine into the agent
-  execution path (`internal/agent/`) so prompts, model responses, *and* tool
-  outputs are scanned automatically — today the engine is reachable only via the
-  `guardrails` CLI.
 - **MCP server hardening**: per-tool authorization, rate limiting, input
   validation, and audit logging for every MCP tool invocation.
 - **Tool-poisoning defense**: pin and hash-verify MCP/skill tool descriptions;

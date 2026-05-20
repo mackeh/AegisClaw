@@ -1081,22 +1081,29 @@ to indirect (data-borne) injection.
 **Key files:** `internal/guardrails/normalize.go`, `indirect.go`,
 `guardrails.go`, `cmd/aegisclaw/main.go`.
 
-### 9.2 — Guardrail Pipeline Integration
+### 9.2 — Guardrail Pipeline Integration (Shipped in v0.9.0)
 
 **Goal:** Run guardrails automatically inside the agent, not just via CLI.
 
-**Steps:**
+**Delivered:**
 
-1. In `internal/agent/`, call `CheckInput` on prompts before dispatch and
-   `CheckOutput` on model responses.
-2. Call `CheckData` on every tool/skill output and fetched document before it
-   re-enters the model context.
-3. On a critical/high violation: block, log to audit, and route to the TUI
-   approval flow.
-4. Make enforcement configurable (`block` / `warn` / `audit-only`).
+1. `internal/agent/guardrails.go` — `inspectSkillOutput` runs `CheckData` over
+   a skill's captured stdout after execution, before the result is returned.
+2. Indirect-injection violations are written to the audit log as
+   `guardrail.violation` entries.
+3. Enforcement is configurable via the `guardrails.mode` config key
+   (`GuardrailsConfig` in `internal/config/`): `off`, `warn` (default), or
+   `block`. In `block` mode, output carrying a critical/high violation is
+   withheld and `ExecuteSkill` returns an error.
+4. `internal/agent/guardrails_test.go` covers mode resolution and enforcement
+   without requiring Docker — the first test file in the `agent` package.
 
-**Estimated effort:** 2–3 weeks · **Key files:** `internal/agent/`,
-`internal/config/`.
+**Follow-up:** wiring `CheckInput`/`CheckOutput` around an LLM call belongs with
+a future first-class agent-loop runtime; today the agent executes containerised
+skills, so skill output is the relevant untrusted-data boundary.
+
+**Key files:** `internal/agent/guardrails.go`, `internal/agent/agent.go`,
+`internal/config/config.go`.
 
 ### 9.3 — MCP Server Hardening
 

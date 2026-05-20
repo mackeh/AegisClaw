@@ -37,7 +37,7 @@ Requires Go 1.24+ and Docker (for sandbox execution).
 When a skill runs, the path through the codebase is:
 
 1. **CLI** (`cmd/aegisclaw/main.go`) — Cobra command tree, REPL in `run`, REST API in `serve`
-2. **Agent** (`internal/agent/`) — Orchestrator: validates command, evaluates policy, handles approval, injects secrets, runs sandbox, streams output through redactor, logs to audit
+2. **Agent** (`internal/agent/`) — Orchestrator: validates command, evaluates policy, handles approval, injects secrets, runs sandbox, streams output through redactor, scans skill output for indirect prompt injection (`guardrails.go`, configurable `guardrails.mode`), logs to audit
 3. **Policy** (`internal/policy/`) — OPA/Rego engine. Evaluates scope requests → returns `Allow`, `Deny`, or `RequireApproval`
 4. **Approval** (`internal/approval/`) — Bubbletea TUI for interactive approve/deny/always-approve prompts
 5. **Sandbox** (`internal/sandbox/`) — Docker executor with hardened defaults (all caps dropped, read-only rootfs, 512MB mem, 1 CPU, 100 pids, no-new-privileges). Pluggable runtime: Docker, gVisor, Kata, Firecracker. `ComposeExecutor` for multi-container skills
@@ -91,4 +91,4 @@ Skills load from both `~/.aegisclaw/skills/` and a local `./skills/` directory. 
 - CLI output uses emoji prefixes for visual feedback
 - Policy files are OPA Rego with package `aegisclaw.policy`
 - Version is hardcoded in `cmd/aegisclaw/main.go` (`var version`) and `internal/mcp/server.go`
-- Test coverage spans 24 packages; only `agent`, `approval`, `server/ui` lack tests (agent requires Docker, approval is TUI-interactive, ui is an embed directive)
+- Test coverage spans 25 packages; only `approval` and `server/ui` lack tests (approval is TUI-interactive, ui is an embed directive). The `agent` package tests cover the non-Docker logic (guardrail mode resolution, output scanning); full skill execution still requires Docker

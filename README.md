@@ -273,8 +273,9 @@ Troubleshooting
   content the agent ingests (web pages, tool outputs, files) for hijack
   attempts — forged role delimiters, AI-addressed directives, HTML-comment
   payloads, and exfiltration instructions.
-- [ ] **Guardrail Pipeline Integration**: Wire guardrails into the agent
-  execution path so tool outputs are scanned automatically, not just via CLI.
+- [x] **Guardrail Pipeline Integration**: The agent automatically scans every
+  skill's output for indirect prompt injection before returning it. Configurable
+  via `guardrails.mode` (`off`/`warn`/`block`); violations hit the audit log.
 - [ ] **MCP Server Hardening**: Per-tool authorization, rate limiting, and
   audit logging for MCP tool invocations.
 - [ ] **Tool-Poisoning Defense**: Pin and hash-verify MCP/skill tool
