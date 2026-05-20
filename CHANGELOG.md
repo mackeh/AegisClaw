@@ -27,6 +27,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
   `guardrails.mode` config key (`off` / `warn` / `block`, default `warn`);
   violations are written to the audit log as `guardrail.violation` entries
   (`internal/agent/guardrails.go`).
+- **`aegisclaw-threat-cases.md`**: reference threat-case document mapping
+  real-world autonomous-agent vulnerability classes — illustrated by the Hermes
+  agent (unauthenticated RCE, scanner bypass, symlink traversal CVE-2026-7397,
+  credential exposure CVE-2026-22798) — to the AegisClaw controls that contain
+  each class. Linked from `SECURITY.md` and the roadmap's Threat Landscape.
 - Expanded direct injection and jailbreak pattern sets (system-prompt
   exfiltration, role confusion, `god/admin/debug` mode, hypothetical-framing
   jailbreaks).

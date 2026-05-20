@@ -192,7 +192,22 @@ skills. v0.9.x prioritises these:
    signatures prove authorship but not safety. Mitigation: SBOM + image
    vulnerability scanning + a signature transparency log.
 
+### Real-World Motivation
+
+These priorities are not theoretical. Publicly reported incidents in other
+autonomous agents — see [`aegisclaw-threat-cases.md`](aegisclaw-threat-cases.md)
+for the Hermes agent case study — show the recurring failure modes:
+unauthenticated RCE from an exposed control plane, keyword-scanner bypass via
+dynamic string construction, symlink/path traversal, and opt-in (off-by-default)
+secret redaction. AegisClaw treats each as a *class* to be contained by
+defense-in-depth, not patched once. Two gaps that case study surfaced are now
+tracked below: a network-exposure safeguard and stricter MCP hardening.
+
 ### 🔭 v0.9.x — Remaining Threat-Hardening Work
+
+- **Network-exposure safeguards**: refuse to bind `aegisclaw serve` to a
+  non-loopback address unless API-token auth is configured — closing the
+  "unauthenticated RCE from a 0.0.0.0 bind" class by default.
 
 - **MCP server hardening**: per-tool authorization, rate limiting, input
   validation, and audit logging for every MCP tool invocation.

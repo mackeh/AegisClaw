@@ -33,6 +33,19 @@ We currently **do not** protect against:
 - Physical access to the host machine.
 - Compromised host OS user account (if `rootless` docker is not used).
 
+## Reference Threat Cases
+
+AegisClaw's controls are validated against the standard failure modes of
+autonomous agents — unauthenticated RCE, sandbox/filter bypass, path/symlink
+traversal, and credential exposure. [`aegisclaw-threat-cases.md`](aegisclaw-threat-cases.md)
+documents real-world agent incidents (e.g. the Hermes agent) and maps each
+vulnerability **class** to the specific AegisClaw control that contains it.
+
+The guiding principle is **defense-in-depth**: no single control — not the
+guardrails, not authentication, not a path check — is load-bearing. A bypass of
+any one layer is contained by the sandbox, default-deny networking, encrypted
+secrets, and tamper-evident audit beneath it.
+
 ## Security Audits
 
 No third-party audits have been performed yet. Use at your own risk in production environments.
