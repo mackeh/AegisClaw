@@ -3,8 +3,10 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/mackeh/AegisClaw/internal/agent"
@@ -42,40 +44,78 @@ type Response struct {
 // Server handles tool execution requests
 type Server struct {
 	Port int
+	Host string // bind address; defaults to loopback
 	Hub  *Hub
+
+	// Insecure permits a non-loopback bind without authentication.
+	Insecure bool
+	// Auth holds the API authentication config, loaded by Start.
+	Auth AuthConfig
 }
 
 func NewServer(port int) *Server {
-	return &Server{Port: port, Hub: NewHub()}
+	return &Server{Port: port, Host: "127.0.0.1", Hub: NewHub()}
 }
 
 func (s *Server) Start() error {
-	// UI
-	http.HandleFunc("/", s.handleIndex)
+	auth, err := LoadAuthConfig()
+	if err != nil {
+		return err
+	}
+	s.Auth = auth
 
-	// API
-	http.HandleFunc("/api/skills", s.handleListSkills)
-	http.HandleFunc("/api/logs", s.handleListLogs)
-	http.HandleFunc("/api/metrics", promhttp.Handler().ServeHTTP)
-	http.HandleFunc("/api/logs/verify", s.handleVerifyLogs)
-	http.HandleFunc("/api/system/lockdown", s.handleSystemLockdown)
-	http.HandleFunc("/api/system/unlock", s.handleSystemUnlock)
-	http.HandleFunc("/api/system/status", s.handleSystemStatus)
-	http.HandleFunc("/api/openclaw/health", s.handleOpenClawHealth)
-	http.HandleFunc("/api/registry/search", s.handleRegistrySearch)
-	http.HandleFunc("/api/registry/install", s.handleRegistryInstall)
-	http.HandleFunc("/api/execute/stream", s.handleExecuteStream)
-	http.HandleFunc("/api/ws", s.Hub.ServeWS)
-	http.HandleFunc("/api/xray", s.handleXray)
-	http.HandleFunc("/execute", s.handleExecute)
+	if err := validateBindAddress(s.Host, auth.configured(), s.Insecure); err != nil {
+		return err
+	}
+
+	// guard wraps a handler with API-token authentication and RBAC. When auth
+	// is not configured it is a pass-through, preserving local-only behaviour.
+	guard := func(role Role, h http.HandlerFunc) http.HandlerFunc {
+		return AuthMiddleware(s.Auth, role, h)
+	}
+
+	// UI shell and health probe stay unauthenticated.
+	http.HandleFunc("/", s.handleIndex)
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
-	fmt.Printf("📡 AegisClaw API listening on 127.0.0.1:%d...\n", s.Port)
-	fmt.Printf("📊 Dashboard available at http://127.0.0.1:%d\n", s.Port)
-	return http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", s.Port), nil)
+	// Read-only endpoints — viewer and above.
+	http.HandleFunc("/api/skills", guard(RoleViewer, s.handleListSkills))
+	http.HandleFunc("/api/logs", guard(RoleViewer, s.handleListLogs))
+	http.HandleFunc("/api/metrics", guard(RoleViewer, promhttp.Handler().ServeHTTP))
+	http.HandleFunc("/api/logs/verify", guard(RoleViewer, s.handleVerifyLogs))
+	http.HandleFunc("/api/system/status", guard(RoleViewer, s.handleSystemStatus))
+	http.HandleFunc("/api/openclaw/health", guard(RoleViewer, s.handleOpenClawHealth))
+	http.HandleFunc("/api/registry/search", guard(RoleViewer, s.handleRegistrySearch))
+	http.HandleFunc("/api/xray", guard(RoleViewer, s.handleXray))
+	http.HandleFunc("/api/ws", guard(RoleViewer, s.Hub.ServeWS))
+
+	// Action endpoints — operator and above.
+	http.HandleFunc("/api/registry/install", guard(RoleOperator, s.handleRegistryInstall))
+	http.HandleFunc("/api/execute/stream", guard(RoleOperator, s.handleExecuteStream))
+	http.HandleFunc("/api/system/lockdown", guard(RoleOperator, s.handleSystemLockdown))
+	http.HandleFunc("/execute", guard(RoleOperator, s.handleExecute))
+
+	// Privileged endpoints — admin only.
+	http.HandleFunc("/api/system/unlock", guard(RoleAdmin, s.handleSystemUnlock))
+
+	addr := net.JoinHostPort(s.Host, strconv.Itoa(s.Port))
+	display := s.Host
+	if display == "" {
+		display = "0.0.0.0"
+	}
+	fmt.Printf("📡 AegisClaw API listening on %s...\n", addr)
+	fmt.Printf("📊 Dashboard available at http://%s:%d\n", display, s.Port)
+	if s.Auth.configured() {
+		fmt.Println("🔐 API authentication: ENABLED (RBAC)")
+	} else if isLoopbackHost(s.Host) {
+		fmt.Println("🔓 API authentication: disabled — reachable on loopback only")
+	} else {
+		fmt.Println("⚠️  API authentication: disabled on a NON-LOOPBACK bind (--insecure)")
+	}
+	return http.ListenAndServe(addr, nil)
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {

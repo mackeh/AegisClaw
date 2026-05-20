@@ -1,6 +1,6 @@
 # AegisClaw Roadmap
 
-> Last updated: March 2026
+> Last updated: May 2026
 
 ---
 
@@ -142,12 +142,92 @@
 - Updated all documentation and Go version requirements
 - Removed stale planning documents
 
-### 🔭 v0.9.x — Advanced Security & Compliance (Q4 2026)
+### ✅ v0.9.0 — Guardrails 2.0 (Complete)
 
-- **Federated skill trust**: Cross-organisation skill sharing with cryptographic trust chains
-- **Compliance frameworks**: Pre-built policy packs for SOC 2, HIPAA, and GDPR
-- **AI-powered policy generation**: Automated minimal-scope suggestion via LLM analysis
-- **AegisClaw Cloud**: Managed SaaS offering for teams
+The first slice of the v0.9.x threat-hardening work (see Threat Landscape below):
+
+- **Evasion-resistant detection**: prompt-injection and jailbreak rules now run
+  against normalised text variants. Defeats obfuscation via Unicode homoglyphs
+  (Cyrillic/Greek look-alikes), zero-width / invisible characters, fullwidth
+  characters, base64/hex-encoded payloads, and full-phrase letter-spacing.
+- **Indirect prompt injection detection**: new `Engine.CheckData(source, text)`
+  scans untrusted content the agent *ingests* — fetched web pages, tool
+  outputs, retrieved documents, file contents — for hijack attempts: forged
+  conversation/role delimiters (`<system>`, ChatML markers), AI-addressed
+  override directives, HTML-comment payloads, and exfiltration instructions.
+- **CLI `guardrails check/scan --mode data`** with a `--source` origin label.
+- **Expanded pattern sets** for direct injection and jailbreaks (system-prompt
+  exfiltration, role confusion, privilege-mode jailbreaks, hypothetical framing).
+- **Guardrail pipeline integration**: the agent now scans every skill's output
+  for indirect prompt injection before returning it, so poisoned data cannot
+  silently re-enter an agent's model context. Configurable via `guardrails.mode`
+  (`off`/`warn`/`block`, default `warn`); violations are written to the audit
+  log. The guardrails engine is no longer CLI-only.
+- **Network-exposure safeguard**: `aegisclaw serve` gained a `--host` flag and
+  refuses an unauthenticated non-loopback bind. The dormant RBAC auth middleware
+  is now wired into every API endpoint, gated by `~/.aegisclaw/auth.yaml` —
+  closing the "unauthenticated RCE from a 0.0.0.0 bind" class by default.
+- **MCP server hardening**: tool calls are rate-limited (sliding window,
+  configurable via `--rate-limit`) and recorded to a dedicated tamper-evident
+  audit log at `~/.aegisclaw/audit/mcp.log`, with input validation on tool
+  names and audit-query bounds.
+
+---
+
+## Threat Landscape — Why v0.9.x Focuses on Evolving Agent Threats
+
+AegisClaw's original threat model (v0.1–v0.8) is strong on the *host* boundary:
+sandbox isolation, capability dropping, scoped permissions, audit integrity. The
+fastest-moving risks for AI agents in 2026, however, target the *cognitive*
+boundary — what the model is told to do — and the *supply chain* of tools and
+skills. v0.9.x prioritises these:
+
+1. **Indirect prompt injection** — the highest-impact agent threat. Malicious
+   instructions are planted in data the agent retrieves (web pages, emails,
+   documents, API responses) and hijack the agent without the user ever typing
+   them. Addressed by `CheckData` (shipped in v0.9.0).
+2. **Obfuscated injection** — attackers bypass naïve keyword filters with
+   homoglyphs, zero-width characters, encoding, and letter-spacing. Addressed by
+   the normalization layer (shipped in v0.9.0).
+3. **Tool poisoning** — an MCP server or skill silently changes a tool's
+   description/behaviour after first approval, steering the agent. Mitigation:
+   description pinning + hash verification.
+4. **Untrusted tool-call surface** — AegisClaw's own MCP server currently
+   executes tool calls with no per-call authorization, rate limiting, or audit.
+5. **Runaway agentic loops** — self-prompting agents burn cost and take
+   unbounded actions. Mitigation: loop detection + token/cost budgets.
+6. **Skill supply chain** — skill container images may carry known CVEs;
+   signatures prove authorship but not safety. Mitigation: SBOM + image
+   vulnerability scanning + a signature transparency log.
+
+### Real-World Motivation
+
+These priorities are not theoretical. Publicly reported incidents in other
+autonomous agents — see [`aegisclaw-threat-cases.md`](aegisclaw-threat-cases.md)
+for the Hermes agent case study — show the recurring failure modes:
+unauthenticated RCE from an exposed control plane, keyword-scanner bypass via
+dynamic string construction, symlink/path traversal, and opt-in (off-by-default)
+secret redaction. AegisClaw treats each as a *class* to be contained by
+defense-in-depth, not patched once. The network-exposure safeguard and MCP
+hardening that case study motivated both shipped in v0.9.0.
+
+### 🔭 v0.9.x — Remaining Threat-Hardening Work
+
+- **Tool-poisoning defense**: pin and hash-verify MCP/skill tool descriptions;
+  re-prompt for approval when a description changes.
+- **Agentic loop & cost guards**: detect self-prompting loops; enforce per-skill
+  and per-session token/cost budgets.
+- **Skill supply-chain security**: SBOM generation and image vulnerability
+  scanning for skills, backed by a signature transparency log.
+
+### 🔭 v0.10.x — Compliance & Federation
+
+- **Compliance frameworks**: pre-built policy packs for SOC 2, HIPAA, and GDPR.
+- **Federated skill trust**: cross-organisation skill sharing with cryptographic
+  trust chains.
+- **AI-powered policy generation**: automated minimal-scope suggestion via LLM
+  analysis of observed skill behaviour.
+- **AegisClaw Cloud**: managed multi-tenant SaaS offering for teams.
 
 ---
 
@@ -157,8 +237,9 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 **High-impact areas right now:**
 
-- 🧪 Security testing and fuzzing of the sandbox boundary
+- 🧬 Guardrail pipeline integration into the agent execution path
+- 🔐 MCP server hardening (per-tool auth, rate limiting, audit)
+- 🧪 Security testing and fuzzing of the sandbox and guardrail boundaries
 - 📚 Documentation improvements and tutorials
-- 🔨 Implementing eBPF probes for Linux (`internal/ebpf`)
 
 Report bugs or request features via [GitHub Issues](https://github.com/mackeh/AegisClaw/issues).

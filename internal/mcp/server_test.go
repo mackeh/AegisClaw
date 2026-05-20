@@ -129,3 +129,38 @@ func TestHandleToolCall_InvalidParams(t *testing.T) {
 		t.Fatal("expected error for invalid params")
 	}
 }
+
+func TestHandleToolCall_MissingToolName(t *testing.T) {
+	s := NewServer()
+	req := request{
+		JSONRPC: "2.0",
+		ID:      json.RawMessage(`6`),
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"arguments":{}}`),
+	}
+
+	resp := s.handleRequest(context.Background(), req)
+	if resp.Error == nil || resp.Error.Code != -32602 {
+		t.Errorf("expected -32602 for missing tool name, got %+v", resp.Error)
+	}
+}
+
+func TestHandleToolCall_RateLimited(t *testing.T) {
+	s := NewServer()
+	s.SetRateLimit(1) // one tool call per minute
+
+	mkReq := func() request {
+		params, _ := json.Marshal(map[string]string{"name": "aegisclaw_list_skills"})
+		return request{JSONRPC: "2.0", ID: json.RawMessage(`7`), Method: "tools/call", Params: params}
+	}
+
+	r1 := s.handleRequest(context.Background(), mkReq())
+	if r1.Error != nil && r1.Error.Code == rpcRateLimited {
+		t.Fatal("first call should not be rate limited")
+	}
+
+	r2 := s.handleRequest(context.Background(), mkReq())
+	if r2.Error == nil || r2.Error.Code != rpcRateLimited {
+		t.Errorf("second call should be rate limited, got %+v", r2)
+	}
+}

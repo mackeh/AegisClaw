@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "0.8.0"
+var version = "0.9.0"
 
 func main() {
 	// Setup Telemetry
@@ -554,16 +554,26 @@ func skillsCmd() *cobra.Command {
 }
 func serveCmd() *cobra.Command {
 	var port int
+	var host string
+	var insecure bool
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Start the AegisClaw API server",
+		Long: "Start the AegisClaw API server and web dashboard.\n\n" +
+			"Binds to loopback (127.0.0.1) by default. To expose the server on the\n" +
+			"network (--host 0.0.0.0), configure API tokens in ~/.aegisclaw/auth.yaml\n" +
+			"first — AegisClaw refuses an unauthenticated non-loopback bind.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s := server.NewServer(port)
+			s.Host = host
+			s.Insecure = insecure
 			return s.Start()
 		},
 	}
 
 	cmd.Flags().IntVarP(&port, "port", "p", 8080, "Port to listen on")
+	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "Address to bind (use 0.0.0.0 to expose on the network — requires API auth)")
+	cmd.Flags().BoolVar(&insecure, "insecure", false, "Allow a non-loopback bind without authentication (NOT recommended)")
 	return cmd
 }
 
@@ -819,12 +829,15 @@ func simulateCmd() *cobra.Command {
 }
 
 func mcpServerCmd() *cobra.Command {
-	return &cobra.Command{
+	var rateLimit int
+	cmd := &cobra.Command{
 		Use:   "mcp-server",
 		Short: "Start the MCP server for AI assistant integration",
 		Long: `Start a Model Context Protocol server on stdio.
 
 This allows AI assistants like Claude Code to interact with AegisClaw.
+Tool calls are rate-limited and recorded to a tamper-evident audit log
+at ~/.aegisclaw/audit/mcp.log.
 
 Configure in your MCP settings:
   {
@@ -837,16 +850,21 @@ Configure in your MCP settings:
   }`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			srv := mcp.NewServer()
+			if cmd.Flags().Changed("rate-limit") {
+				srv.SetRateLimit(rateLimit)
+			}
 			return srv.Run(cmd.Context())
 		},
 	}
+	cmd.Flags().IntVar(&rateLimit, "rate-limit", 120, "Max tool calls per minute (0 disables limiting)")
+	return cmd
 }
 
 func guardrailsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "guardrails",
 		Short: "LLM prompt safety rails",
-		Long:  "Check prompts and responses against guardrail rules for injection, jailbreak, and data leakage.",
+		Long:  "Check prompts, responses, and untrusted data against guardrail rules for direct and indirect prompt injection, jailbreaks, obfuscation/encoding evasion, and data leakage.",
 	}
 
 	checkCmd := &cobra.Command{
@@ -865,14 +883,20 @@ func guardrailsCmd() *cobra.Command {
 				result = engine.CheckInput(text)
 			case "output":
 				result = engine.CheckOutput(text)
+			case "data":
+				source, _ := cmd.Flags().GetString("source")
+				result = engine.CheckData(source, text)
 			default:
-				return fmt.Errorf("mode must be 'input' or 'output'")
+				return fmt.Errorf("mode must be 'input', 'output', or 'data'")
 			}
 
 			if result.Allowed {
 				fmt.Println("   ALLOWED")
 			} else {
 				fmt.Println("   BLOCKED")
+			}
+			if result.Source != "" {
+				fmt.Printf("   Source: %s\n", result.Source)
 			}
 
 			if len(result.Violations) > 0 {
@@ -891,7 +915,8 @@ func guardrailsCmd() *cobra.Command {
 			return nil
 		},
 	}
-	checkCmd.Flags().String("mode", "input", "Check mode: 'input' (prompt) or 'output' (response)")
+	checkCmd.Flags().String("mode", "input", "Check mode: 'input' (prompt), 'output' (response), or 'data' (untrusted content)")
+	checkCmd.Flags().String("source", "", "Origin label for data-mode scans (e.g. 'web-fetch', 'file:report.md')")
 
 	scanCmd := &cobra.Command{
 		Use:   "scan",
@@ -917,8 +942,11 @@ func guardrailsCmd() *cobra.Command {
 				result = engine.CheckInput(text)
 			case "output":
 				result = engine.CheckOutput(text)
+			case "data":
+				source, _ := cmd.Flags().GetString("source")
+				result = engine.CheckData(source, text)
 			default:
-				return fmt.Errorf("mode must be 'input' or 'output'")
+				return fmt.Errorf("mode must be 'input', 'output', or 'data'")
 			}
 
 			if result.Allowed {
@@ -933,7 +961,8 @@ func guardrailsCmd() *cobra.Command {
 			return nil
 		},
 	}
-	scanCmd.Flags().String("mode", "input", "Check mode: 'input' (prompt) or 'output' (response)")
+	scanCmd.Flags().String("mode", "input", "Check mode: 'input' (prompt), 'output' (response), or 'data' (untrusted content)")
+	scanCmd.Flags().String("source", "", "Origin label for data-mode scans (e.g. 'web-fetch', 'file:report.md')")
 
 	cmd.AddCommand(checkCmd)
 	cmd.AddCommand(scanCmd)

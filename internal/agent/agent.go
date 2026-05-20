@@ -85,7 +85,7 @@ func ExecuteSkillWithStream(ctx context.Context, m *skill.Manifest, cmdName stri
 	if err != nil {
 		return nil, fmt.Errorf("failed to load policy: %w", err)
 	}
-	
+
 	decision, riskyScopes, err := engine.EvaluateRequest(ctx, req)
 	if err != nil {
 		telemetry.PolicyDecisionsTotal.WithLabelValues("error").Inc()
@@ -245,7 +245,7 @@ func ExecuteSkillWithStream(ctx context.Context, m *skill.Manifest, cmdName stri
 	if stdoutStream != nil {
 		stdoutWriters = append(stdoutWriters, stdoutStream)
 	}
-	
+
 	stderrWriters := []io.Writer{os.Stderr, stderrBuf}
 	if stderrStream != nil {
 		stderrWriters = append(stderrWriters, stderrStream)
@@ -264,14 +264,23 @@ func ExecuteSkillWithStream(ctx context.Context, m *skill.Manifest, cmdName stri
 		defer wg.Done()
 		io.Copy(safeStdout, result.Stdout)
 	}()
-	
+
 	go func() {
 		defer wg.Done()
 		io.Copy(safeStderr, result.Stderr)
 	}()
 
 	wg.Wait()
-	
+
+	// 8. Scan skill output for indirect prompt injection before it can be fed
+	//    back into an agent's model context.
+	if gRes, blocked := inspectSkillOutput(guardrailMode(cfg), m.Name, stdoutBuf.String(), logger); gRes != nil && len(gRes.Violations) > 0 {
+		reportViolations(os.Stderr, m.Name, gRes)
+		if blocked {
+			return nil, fmt.Errorf("guardrails blocked skill output: %d violation(s) — treat returned data as an untrusted injection attempt", len(gRes.Violations))
+		}
+	}
+
 	return &ExecutionResult{
 		ExitCode: result.ExitCode,
 		Stdout:   stdoutBuf.String(),

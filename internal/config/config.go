@@ -11,17 +11,25 @@ import (
 
 // Config represents the main AegisClaw configuration
 type Config struct {
-	Version       string               `yaml:"version"`
-	Agent         AgentConfig          `yaml:"agent"`
-	Security      SecurityConfig       `yaml:"security"`
-	Network       NetworkConfig        `yaml:"network"`
-	Registry      RegistryConfig       `yaml:"registry"`
-	Telemetry     TelemetryConfig      `yaml:"telemetry"`
+	Version    string           `yaml:"version"`
+	Agent      AgentConfig      `yaml:"agent"`
+	Security   SecurityConfig   `yaml:"security"`
+	Network    NetworkConfig    `yaml:"network"`
+	Registry   RegistryConfig   `yaml:"registry"`
+	Telemetry  TelemetryConfig  `yaml:"telemetry"`
+	Guardrails GuardrailsConfig `yaml:"guardrails"`
+}
+
+// GuardrailsConfig controls how the agent reacts to prompt-injection guardrail
+// violations found in skill output. Mode is one of "off", "warn" (default), or
+// "block"; an empty value is treated as "warn".
+type GuardrailsConfig struct {
+	Mode string `yaml:"mode"`
 }
 
 // TelemetryConfig contains observability settings
 type TelemetryConfig struct {
-	Enabled bool   `yaml:"enabled"`
+	Enabled  bool   `yaml:"enabled"`
 	Exporter string `yaml:"exporter"` // e.g., "stdout", "otlp", "none"
 }
 

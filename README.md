@@ -21,6 +21,7 @@ AegisClaw acts as a security envelope around your AI agents, providing sandboxin
 - **👁️ Security Visualization**: Active "Security Envelope" indicator confirming sandbox isolation and protection status.
 - **🔌 Adapter Health**: Real-time connection monitoring to the OpenClaw agent runtime.
 - **🚫 Active Secret Redaction**: Automatically scrubs secrets from logs and console output if they leak.
+- **🧬 Prompt-Injection Defense**: Evasion-resistant LLM guardrails detecting direct *and* indirect prompt injection — including obfuscated attacks (Unicode homoglyphs, zero-width characters, base64/hex encoding, letter-spacing) and instructions smuggled into data the agent ingests.
 - **🛑 Emergency Lockdown**: "PANIC BUTTON" to instantly kill all running skills and block new executions.
 - **✋ Human-in-the-Loop**: TUI-based approval system for high-risk actions.
 - **🔐 Secret Encryption**: `age`-based encryption for sensitive API keys.
@@ -49,17 +50,32 @@ The V4 Dashboard features a dedicated **Security Operations Center** with:
 
 ## 📦 Installation
 
-### From Source
+Docker is required for sandboxed skill execution. Building from source needs **Go 1.24+**.
+
+### Install script (Linux / macOS)
 
 ```bash
-# Clone the repository
+curl -fsSL https://raw.githubusercontent.com/mackeh/AegisClaw/main/install.sh | bash
+```
+
+### Pre-built binaries
+
+Download the archive for your platform from the
+[Releases page](https://github.com/mackeh/AegisClaw/releases) — Linux, macOS,
+and Windows (amd64 + arm64) — extract it, and place `aegisclaw` on your `PATH`.
+
+### `go install`
+
+```bash
+go install github.com/mackeh/AegisClaw/cmd/aegisclaw@latest
+```
+
+### From source
+
+```bash
 git clone https://github.com/mackeh/AegisClaw.git
 cd AegisClaw
-
-# Build the binary
 go build -o aegisclaw ./cmd/aegisclaw
-
-# Verify installation
 ./aegisclaw --version
 ```
 
@@ -100,7 +116,29 @@ Check the immutable log of actions:
 ./aegisclaw logs verify  # Check cryptographic integrity
 ```
 
-### 5. Multi-node Clusters (v0.7.0+)
+### 5. Check Prompt Safety (Guardrails)
+
+AegisClaw's guardrails detect prompt injection — including **obfuscated**
+attacks (homoglyphs, zero-width characters, encoding) and **indirect** injection
+hidden in data the agent ingests:
+
+```bash
+# Scan a user prompt
+./aegisclaw guardrails check --mode input "ignore all previous instructions"
+
+# Scan untrusted data the agent fetched (web page, tool output, file)
+./aegisclaw guardrails check --mode data --source web-fetch "<retrieved content>"
+```
+
+The agent **also scans every skill's output automatically**. Set `guardrails.mode`
+in `~/.aegisclaw/config.yaml` to control enforcement:
+
+```yaml
+guardrails:
+  mode: warn   # warn (default) | block | off
+```
+
+### 6. Multi-node Clusters (v0.7.0+)
 
 AegisClaw supports distributed orchestration with centralized policy and audit:
 
@@ -125,6 +163,29 @@ Start the AegisClaw API and UI server:
 ```
 
 Then, open your browser and navigate to `http://localhost:8080`.
+
+The server binds to **loopback (`127.0.0.1`) by default**. To expose it on the
+network you must first configure API authentication — AegisClaw **refuses an
+unauthenticated non-loopback bind** (the failure mode behind unauthenticated-RCE
+incidents in other agents):
+
+```bash
+# ~/.aegisclaw/auth.yaml
+enabled: true
+keys:
+  - name: dashboard
+    token: <a-long-random-token>
+    role: admin      # admin | operator | viewer
+```
+
+```bash
+# Now a network bind is allowed; requests require the token
+./aegisclaw serve --host 0.0.0.0 --port 8080
+```
+
+API requests then authenticate via `Authorization: Bearer <token>`, an
+`X-API-Key` header, or an `?api_key=` query parameter, and are authorised by
+RBAC role. The `--insecure` flag overrides the safeguard but is not recommended.
 
 ### 2. Dashboard Features
 
@@ -262,10 +323,57 @@ Troubleshooting
 - [x] Updated documentation and Go version requirements
 - [x] Cleaned up stale planning documents and config types
 
+### v0.9.x (Defense Against Evolving Agent Threats)
+
+- [x] **Guardrails 2.0 — Evasion-Resistant Detection**: Prompt-injection and
+  jailbreak checks now normalise text first, defeating obfuscation via
+  Unicode homoglyphs, zero-width characters, fullwidth characters, base64/hex
+  encoding, and letter-spacing.
+- [x] **Indirect Prompt Injection Detection**: `CheckData` scans untrusted
+  content the agent ingests (web pages, tool outputs, files) for hijack
+  attempts — forged role delimiters, AI-addressed directives, HTML-comment
+  payloads, and exfiltration instructions.
+- [x] **Guardrail Pipeline Integration**: The agent automatically scans every
+  skill's output for indirect prompt injection before returning it. Configurable
+  via `guardrails.mode` (`off`/`warn`/`block`); violations hit the audit log.
+- [x] **Network-Exposure Safeguard**: `aegisclaw serve` refuses an
+  unauthenticated non-loopback bind; the dormant RBAC auth middleware is now
+  wired into every API endpoint and gated by `~/.aegisclaw/auth.yaml`.
+- [x] **MCP Server Hardening**: MCP tool calls are rate-limited and recorded
+  to a dedicated tamper-evident audit log (`~/.aegisclaw/audit/mcp.log`), with
+  input validation on tool names and query bounds.
+- [ ] **Tool-Poisoning Defense**: Pin and hash-verify MCP/skill tool
+  descriptions to detect tampering between runs.
+- [ ] **Agentic Loop & Cost Guards**: Detect runaway agent loops; enforce
+  per-skill and per-session token/cost budgets.
+- [ ] **Skill Supply-Chain Security**: SBOM generation and image vulnerability
+  scanning for skills, with a signature transparency log.
+
 ### Long-Term Vision
 
+- [ ] **Compliance Frameworks**: Pre-built policy packs for SOC 2, HIPAA, GDPR.
+- [ ] **Federated Skill Trust**: Cross-organisation skill sharing with
+  cryptographic trust chains.
 - [ ] **AegisClaw Cloud**: Multi-tenant SaaS with org/team hierarchy, managed registry, and hosted dashboards.
 - [ ] **AI-Powered Policies**: LLM-assisted minimal-scope generation and behavior anomaly detection.
+
+## 🛡️ Defense Against Known Agent Vulnerabilities
+
+AegisClaw's controls are validated against the **real-world failure modes of
+autonomous agents**. The [Hermes agent](aegisclaw-threat-cases.md) suffered a
+series of publicly reported vulnerabilities that are typical of unprotected
+agents — and each maps to a control AegisClaw enforces by default:
+
+| Hermes-class vulnerability | How AegisClaw contains it |
+|----------------------------|---------------------------|
+| **Unauthenticated RCE** — API server reachable on the network with auth off by default | `serve` binds to **loopback by default** and **refuses an unauthenticated non-loopback bind**; all API endpoints sit behind RBAC token auth |
+| **Sandbox / filter bypass** — safety scanner defeated by dynamic string construction | **Defense-in-depth**: even a bypassed guard leaves the skill inside a hardened sandbox (caps dropped, read-only rootfs, no-new-privileges). **Guardrails 2.0** normalises text to defeat the obfuscation itself |
+| **Symlink / path traversal** — writes escape into protected directories | Manifest file access confined with `OpenRoot`; sandbox rootfs is read-only with no host bind mounts |
+| **Credential exposure** — secrets printed to chat/logs because redaction was opt-in | **Active secret redaction is on by default**; secrets are `age`-encrypted and never written in plaintext |
+
+The principle is **defense-in-depth**: no single control is load-bearing. See
+[`aegisclaw-threat-cases.md`](aegisclaw-threat-cases.md) for the full case study
+and control mapping.
 
 ## 🤝 Contributing
 We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.

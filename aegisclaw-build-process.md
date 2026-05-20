@@ -1041,6 +1041,113 @@
 
 ---
 
+## v0.9.x: Defense Against Evolving Agent Threats
+
+The v0.9.x line hardens AegisClaw against the *cognitive* and *supply-chain*
+attack surfaces — see the Threat Landscape section of `aegisclaw-roadmap.md`.
+
+### 9.1 — Guardrails 2.0 (Shipped in v0.9.0)
+
+**Goal:** Make prompt-injection detection resistant to obfuscation and extend it
+to indirect (data-borne) injection.
+
+**Delivered:**
+
+1. **Normalization layer** (`internal/guardrails/normalize.go`):
+   - `stripInvisible` — removes zero-width spaces, joiners, soft hyphens, BOM.
+   - `foldConfusables` — maps Cyrillic/Greek homoglyphs and fullwidth
+     characters back to ASCII.
+   - `collapseSpace` / `compact` — flatten whitespace and separator-based
+     letter-spacing evasion.
+   - `decodeEmbedded` — extracts and decodes base64/hex blobs so encoded
+     payloads can be inspected (`isMostlyPrintable` filters binary noise).
+   - `scanText` — bundles the original text plus every normalised/decoded
+     variant; `find` reports whether a match required de-obfuscation.
+
+2. **Evasion-resistant rules** — all injection/jailbreak/secret checks match
+   across every `scanText` variant, plus `compactInjectionSignatures` for
+   full-phrase letter-spacing.
+
+3. **Indirect injection** (`internal/guardrails/indirect.go`):
+   - `Engine.CheckData(source, text)` scans untrusted ingested content.
+   - `indirectInjectionPatterns` — forged role delimiters (`<system>`, ChatML
+     `<|im_start|>`), AI-addressed override directives, "if you are an AI"
+     framing, notes addressed to an AI reader.
+   - `embeddedDirectivePatterns` — HTML-comment payloads, "without telling the
+     user" directives, exfiltration-to-URL commands.
+
+4. **CLI** — `guardrails check`/`scan` gained `--mode data` and `--source`.
+
+**Key files:** `internal/guardrails/normalize.go`, `indirect.go`,
+`guardrails.go`, `cmd/aegisclaw/main.go`.
+
+### 9.2 — Guardrail Pipeline Integration (Shipped in v0.9.0)
+
+**Goal:** Run guardrails automatically inside the agent, not just via CLI.
+
+**Delivered:**
+
+1. `internal/agent/guardrails.go` — `inspectSkillOutput` runs `CheckData` over
+   a skill's captured stdout after execution, before the result is returned.
+2. Indirect-injection violations are written to the audit log as
+   `guardrail.violation` entries.
+3. Enforcement is configurable via the `guardrails.mode` config key
+   (`GuardrailsConfig` in `internal/config/`): `off`, `warn` (default), or
+   `block`. In `block` mode, output carrying a critical/high violation is
+   withheld and `ExecuteSkill` returns an error.
+4. `internal/agent/guardrails_test.go` covers mode resolution and enforcement
+   without requiring Docker — the first test file in the `agent` package.
+
+**Follow-up:** wiring `CheckInput`/`CheckOutput` around an LLM call belongs with
+a future first-class agent-loop runtime; today the agent executes containerised
+skills, so skill output is the relevant untrusted-data boundary.
+
+**Key files:** `internal/agent/guardrails.go`, `internal/agent/agent.go`,
+`internal/config/config.go`.
+
+### 9.3 — MCP Server Hardening
+
+**Goal:** Stop AegisClaw's own MCP server from being an unguarded tool surface.
+
+**Steps:** per-tool authorization tied to RBAC roles; rate limiting per client;
+strict input-schema validation; audit-log every `tools/call`.
+
+**Estimated effort:** 2 weeks · **Key files:** `internal/mcp/`,
+`internal/server/auth.go`, `internal/audit/`.
+
+### 9.4 — Tool-Poisoning Defense
+
+**Goal:** Detect when an MCP server or skill changes a tool's
+description/behaviour after first approval.
+
+**Steps:** hash tool descriptions on first sight; persist the hash; on each run
+compare and re-prompt for approval if it changed.
+
+**Estimated effort:** 1–2 weeks · **Key files:** `internal/mcp/`,
+`internal/skill/`.
+
+### 9.5 — Agentic Loop & Cost Guards
+
+**Goal:** Bound runaway self-prompting agents.
+
+**Steps:** detect repeated near-identical prompt cycles; enforce per-skill and
+per-session token/cost budgets; trip lockdown on breach.
+
+**Estimated effort:** 2–3 weeks · **Key files:** `internal/agent/`,
+`internal/system/`.
+
+### 9.6 — Skill Supply-Chain Security
+
+**Goal:** Prove skills are not just authored-by-X but actually safe.
+
+**Steps:** generate an SBOM per skill image; scan images for known CVEs
+(Trivy/Grype); maintain an append-only signature transparency log.
+
+**Estimated effort:** 3–4 weeks · **Key files:** `internal/skill/`,
+`internal/marketplace/`.
+
+---
+
 ## Infrastructure & DevOps Requirements
 
 | Component | Technology | Purpose |

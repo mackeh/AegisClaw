@@ -4,6 +4,62 @@ All notable changes to AegisClaw are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] - 2026-05-20
+
+### Added
+
+- **Evasion-resistant guardrails**: prompt-injection and jailbreak detection now
+  runs against normalised text variants, defeating common obfuscation tricks —
+  zero-width / invisible characters, Unicode homoglyphs (Cyrillic/Greek
+  look-alikes), fullwidth characters, base64/hex-encoded payloads, and
+  full-phrase letter-spacing (`internal/guardrails/normalize.go`).
+- **Indirect prompt injection detection**: new `Engine.CheckData(source, text)`
+  scans untrusted content the agent ingests — fetched web pages, tool outputs,
+  retrieved documents, file contents — for instructions that try to hijack the
+  agent. Detects forged conversation/role delimiters (`<system>`, ChatML
+  markers), AI-addressed override directives, HTML-comment payloads, and
+  exfiltration directives (`internal/guardrails/indirect.go`).
+- **`guardrails check`/`scan --mode data`**: new CLI mode with a `--source`
+  label for scanning untrusted data through the indirect-injection rails.
+- **Guardrail pipeline integration**: the agent now scans every skill's output
+  with the indirect-injection rails before it is returned, so poisoned data
+  cannot silently re-enter an agent's model context. Configurable via the new
+  `guardrails.mode` config key (`off` / `warn` / `block`, default `warn`);
+  violations are written to the audit log as `guardrail.violation` entries
+  (`internal/agent/guardrails.go`).
+- **`aegisclaw-threat-cases.md`**: reference threat-case document mapping
+  real-world autonomous-agent vulnerability classes — illustrated by the Hermes
+  agent (unauthenticated RCE, scanner bypass, symlink traversal CVE-2026-7397,
+  credential exposure CVE-2026-22798) — to the AegisClaw controls that contain
+  each class. Linked from `README.md`, `SECURITY.md`, and the roadmap.
+- **Network-exposure safeguard for `aegisclaw serve`**: a new `--host` flag
+  controls the bind address (default `127.0.0.1`). A non-loopback bind is
+  refused unless API-token authentication is configured, or `--insecure` is
+  passed — closing the unauthenticated-RCE class by default
+  (`internal/server/bind.go`).
+- **API authentication wired in**: the previously dormant RBAC `AuthMiddleware`
+  now guards every API endpoint, gated by `~/.aegisclaw/auth.yaml`
+  (`enabled` + `keys`). Endpoints are scoped by role — viewer (read-only),
+  operator (actions), admin (lockdown/unlock). With no auth file present,
+  behaviour is unchanged (loopback-only, pass-through).
+- **MCP server hardening**: tool calls are now rate-limited (sliding window,
+  default 120/min, `--rate-limit` flag) and recorded to a dedicated
+  tamper-evident audit log at `~/.aegisclaw/audit/mcp.log` — kept separate
+  from the main chain so the two processes never corrupt each other's hash
+  chain. Added tool-name and audit-query-limit input validation
+  (`internal/mcp/ratelimit.go`).
+- Expanded direct injection and jailbreak pattern sets (system-prompt
+  exfiltration, role confusion, `god/admin/debug` mode, hypothetical-framing
+  jailbreaks).
+
+### Changed
+
+- Guardrail violations report when a match was found only after
+  de-obfuscation, so operators can see evasion attempts.
+- `Result` gained a `Source` field carrying the origin label for data checks.
+- **Version bump**: `0.8.0` → `0.9.0` across CLI, MCP server, and VS Code extension.
+- Updated README, roadmap, SECURITY.md, and CLAUDE.md for v0.9.0.
+
 ## [0.8.0] - 2026-03-25
 
 ### Removed
