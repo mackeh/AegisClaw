@@ -163,6 +163,10 @@ The first slice of the v0.9.x threat-hardening work (see Threat Landscape below)
   silently re-enter an agent's model context. Configurable via `guardrails.mode`
   (`off`/`warn`/`block`, default `warn`); violations are written to the audit
   log. The guardrails engine is no longer CLI-only.
+- **Network-exposure safeguard**: `aegisclaw serve` gained a `--host` flag and
+  refuses an unauthenticated non-loopback bind. The dormant RBAC auth middleware
+  is now wired into every API endpoint, gated by `~/.aegisclaw/auth.yaml` —
+  closing the "unauthenticated RCE from a 0.0.0.0 bind" class by default.
 
 ---
 
@@ -200,14 +204,10 @@ for the Hermes agent case study — show the recurring failure modes:
 unauthenticated RCE from an exposed control plane, keyword-scanner bypass via
 dynamic string construction, symlink/path traversal, and opt-in (off-by-default)
 secret redaction. AegisClaw treats each as a *class* to be contained by
-defense-in-depth, not patched once. Two gaps that case study surfaced are now
-tracked below: a network-exposure safeguard and stricter MCP hardening.
+defense-in-depth, not patched once. The network-exposure safeguard that case
+study surfaced shipped in v0.9.0; stricter MCP hardening is tracked below.
 
 ### 🔭 v0.9.x — Remaining Threat-Hardening Work
-
-- **Network-exposure safeguards**: refuse to bind `aegisclaw serve` to a
-  non-loopback address unless API-token auth is configured — closing the
-  "unauthenticated RCE from a 0.0.0.0 bind" class by default.
 
 - **MCP server hardening**: per-tool authorization, rate limiting, input
   validation, and audit logging for every MCP tool invocation.

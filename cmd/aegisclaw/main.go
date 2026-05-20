@@ -554,16 +554,26 @@ func skillsCmd() *cobra.Command {
 }
 func serveCmd() *cobra.Command {
 	var port int
+	var host string
+	var insecure bool
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Start the AegisClaw API server",
+		Long: "Start the AegisClaw API server and web dashboard.\n\n" +
+			"Binds to loopback (127.0.0.1) by default. To expose the server on the\n" +
+			"network (--host 0.0.0.0), configure API tokens in ~/.aegisclaw/auth.yaml\n" +
+			"first — AegisClaw refuses an unauthenticated non-loopback bind.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s := server.NewServer(port)
+			s.Host = host
+			s.Insecure = insecure
 			return s.Start()
 		},
 	}
 
 	cmd.Flags().IntVarP(&port, "port", "p", 8080, "Port to listen on")
+	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "Address to bind (use 0.0.0.0 to expose on the network — requires API auth)")
+	cmd.Flags().BoolVar(&insecure, "insecure", false, "Allow a non-loopback bind without authentication (NOT recommended)")
 	return cmd
 }
 

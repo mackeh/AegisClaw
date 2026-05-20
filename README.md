@@ -127,6 +127,29 @@ Start the AegisClaw API and UI server:
 
 Then, open your browser and navigate to `http://localhost:8080`.
 
+The server binds to **loopback (`127.0.0.1`) by default**. To expose it on the
+network you must first configure API authentication — AegisClaw **refuses an
+unauthenticated non-loopback bind** (the failure mode behind unauthenticated-RCE
+incidents in other agents):
+
+```bash
+# ~/.aegisclaw/auth.yaml
+enabled: true
+keys:
+  - name: dashboard
+    token: <a-long-random-token>
+    role: admin      # admin | operator | viewer
+```
+
+```bash
+# Now a network bind is allowed; requests require the token
+./aegisclaw serve --host 0.0.0.0 --port 8080
+```
+
+API requests then authenticate via `Authorization: Bearer <token>`, an
+`X-API-Key` header, or an `?api_key=` query parameter, and are authorised by
+RBAC role. The `--insecure` flag overrides the safeguard but is not recommended.
+
 ### 2. Dashboard Features
 
 - **System Overview**: Monitor system status, total executions, and the active policy mode (OPA/Rego).
@@ -276,6 +299,9 @@ Troubleshooting
 - [x] **Guardrail Pipeline Integration**: The agent automatically scans every
   skill's output for indirect prompt injection before returning it. Configurable
   via `guardrails.mode` (`off`/`warn`/`block`); violations hit the audit log.
+- [x] **Network-Exposure Safeguard**: `aegisclaw serve` refuses an
+  unauthenticated non-loopback bind; the dormant RBAC auth middleware is now
+  wired into every API endpoint and gated by `~/.aegisclaw/auth.yaml`.
 - [ ] **MCP Server Hardening**: Per-tool authorization, rate limiting, and
   audit logging for MCP tool invocations.
 - [ ] **Tool-Poisoning Defense**: Pin and hash-verify MCP/skill tool
@@ -292,6 +318,24 @@ Troubleshooting
   cryptographic trust chains.
 - [ ] **AegisClaw Cloud**: Multi-tenant SaaS with org/team hierarchy, managed registry, and hosted dashboards.
 - [ ] **AI-Powered Policies**: LLM-assisted minimal-scope generation and behavior anomaly detection.
+
+## 🛡️ Defense Against Known Agent Vulnerabilities
+
+AegisClaw's controls are validated against the **real-world failure modes of
+autonomous agents**. The [Hermes agent](aegisclaw-threat-cases.md) suffered a
+series of publicly reported vulnerabilities that are typical of unprotected
+agents — and each maps to a control AegisClaw enforces by default:
+
+| Hermes-class vulnerability | How AegisClaw contains it |
+|----------------------------|---------------------------|
+| **Unauthenticated RCE** — API server reachable on the network with auth off by default | `serve` binds to **loopback by default** and **refuses an unauthenticated non-loopback bind**; all API endpoints sit behind RBAC token auth |
+| **Sandbox / filter bypass** — safety scanner defeated by dynamic string construction | **Defense-in-depth**: even a bypassed guard leaves the skill inside a hardened sandbox (caps dropped, read-only rootfs, no-new-privileges). **Guardrails 2.0** normalises text to defeat the obfuscation itself |
+| **Symlink / path traversal** — writes escape into protected directories | Manifest file access confined with `OpenRoot`; sandbox rootfs is read-only with no host bind mounts |
+| **Credential exposure** — secrets printed to chat/logs because redaction was opt-in | **Active secret redaction is on by default**; secrets are `age`-encrypted and never written in plaintext |
+
+The principle is **defense-in-depth**: no single control is load-bearing. See
+[`aegisclaw-threat-cases.md`](aegisclaw-threat-cases.md) for the full case study
+and control mapping.
 
 ## 🤝 Contributing
 We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.

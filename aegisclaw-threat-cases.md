@@ -43,7 +43,7 @@ control is load-bearing.
 
 | Vulnerability class | AegisClaw control |
 |---------------------|-------------------|
-| **Unauthenticated RCE** | The REST API and dashboard sit behind RBAC middleware (`admin`/`operator`/`viewer`) with constant-time API-token comparison (`internal/server/auth.go`). Skills never execute on the host — only inside the hardened sandbox. Network egress is default-deny. |
+| **Unauthenticated RCE** | `aegisclaw serve` binds to loopback by default and **refuses an unauthenticated non-loopback bind** (`internal/server/bind.go`). Every API endpoint sits behind RBAC middleware (`admin`/`operator`/`viewer`) with constant-time API-token comparison (`internal/server/auth.go`). Skills never execute on the host — only inside the hardened sandbox. Network egress is default-deny. |
 | **Sandbox / filter bypass** | Guardrails are *not* the only barrier. Even if a guard is evaded, the skill still runs in a Docker/gVisor sandbox with **all capabilities dropped, read-only rootfs, `no-new-privileges`, non-root user, and PID/memory/CPU limits**. Separately, **Guardrails 2.0** normalises text before matching — defeating exactly the "dynamic string construction" / obfuscation evasion that bypassed `skills_guard` (homoglyphs, zero-width characters, encoding, letter-spacing). |
 | **Symlink traversal** | Skill manifest file access is confined with `OpenRoot` (v0.7.1 hardening) and rejects `..` traversal. The sandbox rootfs is **read-only** and the container has no bind mount to host system directories, so a symlink inside the container resolves to nothing privileged. |
 | **Credential exposure** | **Active secret redaction is on by default** — the redactor wraps every skill output stream (`internal/security/redactor/`), so leaked secrets are scrubbed before they reach a log or console. Secrets are stored `age`-encrypted and injected as scoped environment variables, never written to disk in plaintext. |
@@ -57,7 +57,7 @@ the runtime rather than left to the operator:
 | Recommended mitigation | AegisClaw equivalent |
 |------------------------|----------------------|
 | "Never use local execution by default — run inside an isolated container/VM." | AegisClaw runs **every** skill in a sandbox. There is no unsandboxed execution path. |
-| "Do not bind the API server to `0.0.0.0` without strong API keys." | Run `aegisclaw serve` on `localhost`; enable API-token auth for any non-loopback bind. See the v0.9.x roadmap item on network-exposure safeguards. |
+| "Do not bind the API server to `0.0.0.0` without strong API keys." | Enforced: `aegisclaw serve` binds to loopback by default and **refuses an unauthenticated non-loopback bind**. Exposing it on the network requires API tokens in `~/.aegisclaw/auth.yaml`; every endpoint is then behind RBAC. |
 | "Set strict guards — scan all autonomously created skills." | Set `guardrails.mode: block`; require signed (Ed25519) skill manifests; keep policy mode at `strict`/`standard`. |
 | "Turn on secret redaction." | Redaction is **on by default** and cannot be silently disabled. |
 

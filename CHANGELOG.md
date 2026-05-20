@@ -31,7 +31,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
   real-world autonomous-agent vulnerability classes — illustrated by the Hermes
   agent (unauthenticated RCE, scanner bypass, symlink traversal CVE-2026-7397,
   credential exposure CVE-2026-22798) — to the AegisClaw controls that contain
-  each class. Linked from `SECURITY.md` and the roadmap's Threat Landscape.
+  each class. Linked from `README.md`, `SECURITY.md`, and the roadmap.
+- **Network-exposure safeguard for `aegisclaw serve`**: a new `--host` flag
+  controls the bind address (default `127.0.0.1`). A non-loopback bind is
+  refused unless API-token authentication is configured, or `--insecure` is
+  passed — closing the unauthenticated-RCE class by default
+  (`internal/server/bind.go`).
+- **API authentication wired in**: the previously dormant RBAC `AuthMiddleware`
+  now guards every API endpoint, gated by `~/.aegisclaw/auth.yaml`
+  (`enabled` + `keys`). Endpoints are scoped by role — viewer (read-only),
+  operator (actions), admin (lockdown/unlock). With no auth file present,
+  behaviour is unchanged (loopback-only, pass-through).
 - Expanded direct injection and jailbreak pattern sets (system-prompt
   exfiltration, role confusion, `god/admin/debug` mode, hypothetical-framing
   jailbreaks).
