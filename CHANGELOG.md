@@ -4,6 +4,35 @@ All notable changes to AegisClaw are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] - 2026-05-20
+
+### Added
+
+- **Evasion-resistant guardrails**: prompt-injection and jailbreak detection now
+  runs against normalised text variants, defeating common obfuscation tricks —
+  zero-width / invisible characters, Unicode homoglyphs (Cyrillic/Greek
+  look-alikes), fullwidth characters, base64/hex-encoded payloads, and
+  full-phrase letter-spacing (`internal/guardrails/normalize.go`).
+- **Indirect prompt injection detection**: new `Engine.CheckData(source, text)`
+  scans untrusted content the agent ingests — fetched web pages, tool outputs,
+  retrieved documents, file contents — for instructions that try to hijack the
+  agent. Detects forged conversation/role delimiters (`<system>`, ChatML
+  markers), AI-addressed override directives, HTML-comment payloads, and
+  exfiltration directives (`internal/guardrails/indirect.go`).
+- **`guardrails check`/`scan --mode data`**: new CLI mode with a `--source`
+  label for scanning untrusted data through the indirect-injection rails.
+- Expanded direct injection and jailbreak pattern sets (system-prompt
+  exfiltration, role confusion, `god/admin/debug` mode, hypothetical-framing
+  jailbreaks).
+
+### Changed
+
+- Guardrail violations report when a match was found only after
+  de-obfuscation, so operators can see evasion attempts.
+- `Result` gained a `Source` field carrying the origin label for data checks.
+- **Version bump**: `0.8.0` → `0.9.0` across CLI, MCP server, and VS Code extension.
+- Updated README, roadmap, SECURITY.md, and CLAUDE.md for v0.9.0.
+
 ## [0.8.0] - 2026-03-25
 
 ### Removed

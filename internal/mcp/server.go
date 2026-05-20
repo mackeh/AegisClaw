@@ -131,7 +131,7 @@ func (s *Server) handleRequest(ctx context.Context, req request) response {
 				},
 				"serverInfo": map[string]interface{}{
 					"name":    "aegisclaw",
-					"version": "0.8.0",
+					"version": "0.9.0",
 				},
 			},
 		}

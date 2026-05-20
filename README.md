@@ -21,6 +21,7 @@ AegisClaw acts as a security envelope around your AI agents, providing sandboxin
 - **👁️ Security Visualization**: Active "Security Envelope" indicator confirming sandbox isolation and protection status.
 - **🔌 Adapter Health**: Real-time connection monitoring to the OpenClaw agent runtime.
 - **🚫 Active Secret Redaction**: Automatically scrubs secrets from logs and console output if they leak.
+- **🧬 Prompt-Injection Defense**: Evasion-resistant LLM guardrails detecting direct *and* indirect prompt injection — including obfuscated attacks (Unicode homoglyphs, zero-width characters, base64/hex encoding, letter-spacing) and instructions smuggled into data the agent ingests.
 - **🛑 Emergency Lockdown**: "PANIC BUTTON" to instantly kill all running skills and block new executions.
 - **✋ Human-in-the-Loop**: TUI-based approval system for high-risk actions.
 - **🔐 Secret Encryption**: `age`-based encryption for sensitive API keys.
@@ -262,8 +263,32 @@ Troubleshooting
 - [x] Updated documentation and Go version requirements
 - [x] Cleaned up stale planning documents and config types
 
+### v0.9.x (Defense Against Evolving Agent Threats)
+
+- [x] **Guardrails 2.0 — Evasion-Resistant Detection**: Prompt-injection and
+  jailbreak checks now normalise text first, defeating obfuscation via
+  Unicode homoglyphs, zero-width characters, fullwidth characters, base64/hex
+  encoding, and letter-spacing.
+- [x] **Indirect Prompt Injection Detection**: `CheckData` scans untrusted
+  content the agent ingests (web pages, tool outputs, files) for hijack
+  attempts — forged role delimiters, AI-addressed directives, HTML-comment
+  payloads, and exfiltration instructions.
+- [ ] **Guardrail Pipeline Integration**: Wire guardrails into the agent
+  execution path so tool outputs are scanned automatically, not just via CLI.
+- [ ] **MCP Server Hardening**: Per-tool authorization, rate limiting, and
+  audit logging for MCP tool invocations.
+- [ ] **Tool-Poisoning Defense**: Pin and hash-verify MCP/skill tool
+  descriptions to detect tampering between runs.
+- [ ] **Agentic Loop & Cost Guards**: Detect runaway agent loops; enforce
+  per-skill and per-session token/cost budgets.
+- [ ] **Skill Supply-Chain Security**: SBOM generation and image vulnerability
+  scanning for skills, with a signature transparency log.
+
 ### Long-Term Vision
 
+- [ ] **Compliance Frameworks**: Pre-built policy packs for SOC 2, HIPAA, GDPR.
+- [ ] **Federated Skill Trust**: Cross-organisation skill sharing with
+  cryptographic trust chains.
 - [ ] **AegisClaw Cloud**: Multi-tenant SaaS with org/team hierarchy, managed registry, and hosted dashboards.
 - [ ] **AI-Powered Policies**: LLM-assisted minimal-scope generation and behavior anomaly detection.
 

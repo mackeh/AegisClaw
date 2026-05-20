@@ -57,7 +57,7 @@ When a skill runs, the path through the codebase is:
 - **OpenClaw** (`internal/openclaw/`) — Adapter health model used by CLI doctor and `/api/openclaw/health` (status, latency, readiness, secret wiring)
 - **Posture** (`internal/posture/`) — Security posture scoring (A–F grade) across sandboxing, secrets, policy, audit, network
 - **Simulate** (`internal/simulate/`) — Dry-run skill analysis: scope evaluation, risk assessment, policy check without execution
-- **Guardrails** (`internal/guardrails/`) — LLM prompt safety: injection detection, jailbreak prevention, secret leak sanitization
+- **Guardrails** (`internal/guardrails/`) — LLM prompt safety: evasion-resistant direct/indirect prompt-injection detection, jailbreak prevention, secret leak sanitization. `normalize.go` defeats obfuscation (Unicode homoglyphs, zero-width chars, base64/hex encoding); `CheckInput`/`CheckOutput` cover prompts/responses; `CheckData` (`indirect.go`) scans untrusted content the agent ingests
 - **X-Ray** (`internal/xray/`) — Deep runtime inspection of Docker containers: CPU, memory, network I/O, process list
 - **Marketplace** (`internal/marketplace/`) — Skill marketplace with ratings, security badges, search, and local index caching
 - **MCP** (`internal/mcp/`) — Model Context Protocol stdio server exposing AegisClaw tools to AI assistants

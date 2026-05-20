@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "0.8.0"
+var version = "0.9.0"
 
 func main() {
 	// Setup Telemetry
@@ -846,7 +846,7 @@ func guardrailsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "guardrails",
 		Short: "LLM prompt safety rails",
-		Long:  "Check prompts and responses against guardrail rules for injection, jailbreak, and data leakage.",
+		Long:  "Check prompts, responses, and untrusted data against guardrail rules for direct and indirect prompt injection, jailbreaks, obfuscation/encoding evasion, and data leakage.",
 	}
 
 	checkCmd := &cobra.Command{
@@ -865,14 +865,20 @@ func guardrailsCmd() *cobra.Command {
 				result = engine.CheckInput(text)
 			case "output":
 				result = engine.CheckOutput(text)
+			case "data":
+				source, _ := cmd.Flags().GetString("source")
+				result = engine.CheckData(source, text)
 			default:
-				return fmt.Errorf("mode must be 'input' or 'output'")
+				return fmt.Errorf("mode must be 'input', 'output', or 'data'")
 			}
 
 			if result.Allowed {
 				fmt.Println("   ALLOWED")
 			} else {
 				fmt.Println("   BLOCKED")
+			}
+			if result.Source != "" {
+				fmt.Printf("   Source: %s\n", result.Source)
 			}
 
 			if len(result.Violations) > 0 {
@@ -891,7 +897,8 @@ func guardrailsCmd() *cobra.Command {
 			return nil
 		},
 	}
-	checkCmd.Flags().String("mode", "input", "Check mode: 'input' (prompt) or 'output' (response)")
+	checkCmd.Flags().String("mode", "input", "Check mode: 'input' (prompt), 'output' (response), or 'data' (untrusted content)")
+	checkCmd.Flags().String("source", "", "Origin label for data-mode scans (e.g. 'web-fetch', 'file:report.md')")
 
 	scanCmd := &cobra.Command{
 		Use:   "scan",
@@ -917,8 +924,11 @@ func guardrailsCmd() *cobra.Command {
 				result = engine.CheckInput(text)
 			case "output":
 				result = engine.CheckOutput(text)
+			case "data":
+				source, _ := cmd.Flags().GetString("source")
+				result = engine.CheckData(source, text)
 			default:
-				return fmt.Errorf("mode must be 'input' or 'output'")
+				return fmt.Errorf("mode must be 'input', 'output', or 'data'")
 			}
 
 			if result.Allowed {
@@ -933,7 +943,8 @@ func guardrailsCmd() *cobra.Command {
 			return nil
 		},
 	}
-	scanCmd.Flags().String("mode", "input", "Check mode: 'input' (prompt) or 'output' (response)")
+	scanCmd.Flags().String("mode", "input", "Check mode: 'input' (prompt), 'output' (response), or 'data' (untrusted content)")
+	scanCmd.Flags().String("source", "", "Origin label for data-mode scans (e.g. 'web-fetch', 'file:report.md')")
 
 	cmd.AddCommand(checkCmd)
 	cmd.AddCommand(scanCmd)
