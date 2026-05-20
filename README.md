@@ -50,17 +50,32 @@ The V4 Dashboard features a dedicated **Security Operations Center** with:
 
 ## 📦 Installation
 
-### From Source
+Docker is required for sandboxed skill execution. Building from source needs **Go 1.24+**.
+
+### Install script (Linux / macOS)
 
 ```bash
-# Clone the repository
+curl -fsSL https://raw.githubusercontent.com/mackeh/AegisClaw/main/install.sh | bash
+```
+
+### Pre-built binaries
+
+Download the archive for your platform from the
+[Releases page](https://github.com/mackeh/AegisClaw/releases) — Linux, macOS,
+and Windows (amd64 + arm64) — extract it, and place `aegisclaw` on your `PATH`.
+
+### `go install`
+
+```bash
+go install github.com/mackeh/AegisClaw/cmd/aegisclaw@latest
+```
+
+### From source
+
+```bash
 git clone https://github.com/mackeh/AegisClaw.git
 cd AegisClaw
-
-# Build the binary
 go build -o aegisclaw ./cmd/aegisclaw
-
-# Verify installation
 ./aegisclaw --version
 ```
 
@@ -101,7 +116,29 @@ Check the immutable log of actions:
 ./aegisclaw logs verify  # Check cryptographic integrity
 ```
 
-### 5. Multi-node Clusters (v0.7.0+)
+### 5. Check Prompt Safety (Guardrails)
+
+AegisClaw's guardrails detect prompt injection — including **obfuscated**
+attacks (homoglyphs, zero-width characters, encoding) and **indirect** injection
+hidden in data the agent ingests:
+
+```bash
+# Scan a user prompt
+./aegisclaw guardrails check --mode input "ignore all previous instructions"
+
+# Scan untrusted data the agent fetched (web page, tool output, file)
+./aegisclaw guardrails check --mode data --source web-fetch "<retrieved content>"
+```
+
+The agent **also scans every skill's output automatically**. Set `guardrails.mode`
+in `~/.aegisclaw/config.yaml` to control enforcement:
+
+```yaml
+guardrails:
+  mode: warn   # warn (default) | block | off
+```
+
+### 6. Multi-node Clusters (v0.7.0+)
 
 AegisClaw supports distributed orchestration with centralized policy and audit:
 
