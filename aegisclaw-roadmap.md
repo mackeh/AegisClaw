@@ -167,6 +167,10 @@ The first slice of the v0.9.x threat-hardening work (see Threat Landscape below)
   refuses an unauthenticated non-loopback bind. The dormant RBAC auth middleware
   is now wired into every API endpoint, gated by `~/.aegisclaw/auth.yaml` —
   closing the "unauthenticated RCE from a 0.0.0.0 bind" class by default.
+- **MCP server hardening**: tool calls are rate-limited (sliding window,
+  configurable via `--rate-limit`) and recorded to a dedicated tamper-evident
+  audit log at `~/.aegisclaw/audit/mcp.log`, with input validation on tool
+  names and audit-query bounds.
 
 ---
 
@@ -204,13 +208,11 @@ for the Hermes agent case study — show the recurring failure modes:
 unauthenticated RCE from an exposed control plane, keyword-scanner bypass via
 dynamic string construction, symlink/path traversal, and opt-in (off-by-default)
 secret redaction. AegisClaw treats each as a *class* to be contained by
-defense-in-depth, not patched once. The network-exposure safeguard that case
-study surfaced shipped in v0.9.0; stricter MCP hardening is tracked below.
+defense-in-depth, not patched once. The network-exposure safeguard and MCP
+hardening that case study motivated both shipped in v0.9.0.
 
 ### 🔭 v0.9.x — Remaining Threat-Hardening Work
 
-- **MCP server hardening**: per-tool authorization, rate limiting, input
-  validation, and audit logging for every MCP tool invocation.
 - **Tool-poisoning defense**: pin and hash-verify MCP/skill tool descriptions;
   re-prompt for approval when a description changes.
 - **Agentic loop & cost guards**: detect self-prompting loops; enforce per-skill

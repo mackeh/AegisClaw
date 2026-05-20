@@ -60,7 +60,7 @@ When a skill runs, the path through the codebase is:
 - **Guardrails** (`internal/guardrails/`) — LLM prompt safety: evasion-resistant direct/indirect prompt-injection detection, jailbreak prevention, secret leak sanitization. `normalize.go` defeats obfuscation (Unicode homoglyphs, zero-width chars, base64/hex encoding); `CheckInput`/`CheckOutput` cover prompts/responses; `CheckData` (`indirect.go`) scans untrusted content the agent ingests
 - **X-Ray** (`internal/xray/`) — Deep runtime inspection of Docker containers: CPU, memory, network I/O, process list
 - **Marketplace** (`internal/marketplace/`) — Skill marketplace with ratings, security badges, search, and local index caching
-- **MCP** (`internal/mcp/`) — Model Context Protocol stdio server exposing AegisClaw tools to AI assistants
+- **MCP** (`internal/mcp/`) — Model Context Protocol stdio server exposing AegisClaw tools to AI assistants. Tool calls are rate-limited (`ratelimit.go`, sliding window) and logged to a separate hash-chained audit log (`audit/mcp.log`)
 - **System** (`internal/system/`) — Global lockdown state (mutex-protected bool)
 - **Telemetry** (`internal/telemetry/`) — OpenTelemetry tracing + Prometheus metrics
 - **VS Code Extension** (`vscode-extension/`) — TypeScript extension with status sidebar, audit stream, skills tree, and Rego snippets

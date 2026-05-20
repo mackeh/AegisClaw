@@ -10,11 +10,23 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/posture"
 	"github.com/mackeh/AegisClaw/internal/skill"
+)
+
+const (
+	// defaultMCPRateLimitPerMin bounds tool calls per minute. It is generous
+	// for an interactive AI assistant but stops runaway loops.
+	defaultMCPRateLimitPerMin = 120
+	// maxAuditQueryLimit caps how many audit entries a single query returns.
+	maxAuditQueryLimit = 1000
+	// rpcRateLimited is the JSON-RPC error code for a throttled request
+	// (within the -32000..-32099 server-error range).
+	rpcRateLimited = -32000
 )
 
 // JSON-RPC 2.0 types
@@ -26,10 +38,10 @@ type request struct {
 }
 
 type response struct {
-	JSONRPC string      `json:"jsonrpc"`
+	JSONRPC string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   *rpcError   `json:"error,omitempty"`
+	Result  interface{}     `json:"result,omitempty"`
+	Error   *rpcError       `json:"error,omitempty"`
 }
 
 type rpcError struct {
@@ -46,12 +58,15 @@ type Tool struct {
 
 // Server implements the MCP stdio protocol.
 type Server struct {
-	tools []Tool
+	tools   []Tool
+	limiter *rateLimiter
+	logger  *audit.Logger // tamper-evident log of tool calls; nil if unavailable
 }
 
 // NewServer creates an MCP server with AegisClaw tools.
 func NewServer() *Server {
 	return &Server{
+		limiter: newRateLimiter(defaultMCPRateLimitPerMin, time.Minute),
 		tools: []Tool{
 			{
 				Name:        "aegisclaw_list_skills",
@@ -94,8 +109,46 @@ func NewServer() *Server {
 	}
 }
 
+// SetRateLimit overrides the per-minute tool-call limit. A value of zero or
+// less disables rate limiting.
+func (s *Server) SetRateLimit(perMinute int) {
+	s.limiter = newRateLimiter(perMinute, time.Minute)
+}
+
+// openMCPAuditLogger opens a dedicated, hash-chained audit log for MCP tool
+// calls. It is kept separate from the main audit.log so the two processes
+// never interleave appends and corrupt each other's hash chain.
+func openMCPAuditLogger() (*audit.Logger, error) {
+	dir, err := config.DefaultConfigDir()
+	if err != nil {
+		return nil, err
+	}
+	auditDir := filepath.Join(dir, "audit")
+	if err := os.MkdirAll(auditDir, 0o700); err != nil {
+		return nil, err
+	}
+	return audit.NewLogger(filepath.Join(auditDir, "mcp.log"))
+}
+
+// logToolCall records an MCP tool invocation to the audit log, if available.
+func (s *Server) logToolCall(tool, decision string, detail map[string]any) {
+	if s.logger == nil || tool == "" {
+		return
+	}
+	if detail == nil {
+		detail = map[string]any{}
+	}
+	_ = s.logger.Log("mcp.tool_call", nil, decision, tool, detail)
+}
+
 // Run starts the MCP server on stdio, reading JSON-RPC requests and writing responses.
 func (s *Server) Run(ctx context.Context) error {
+	if s.logger == nil {
+		if logger, err := openMCPAuditLogger(); err == nil {
+			s.logger = logger
+		}
+	}
+
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024) // 1MB buffer
 
@@ -166,6 +219,15 @@ func (s *Server) handleToolCall(ctx context.Context, req request) response {
 		return response{JSONRPC: "2.0", ID: req.ID, Error: &rpcError{Code: -32602, Message: "Invalid params"}}
 	}
 
+	if params.Name == "" {
+		return response{JSONRPC: "2.0", ID: req.ID, Error: &rpcError{Code: -32602, Message: "Missing tool name"}}
+	}
+
+	if s.limiter != nil && !s.limiter.allow(time.Now()) {
+		s.logToolCall(params.Name, "rate_limited", nil)
+		return response{JSONRPC: "2.0", ID: req.ID, Error: &rpcError{Code: rpcRateLimited, Message: "Rate limit exceeded: too many tool calls"}}
+	}
+
 	var result interface{}
 	var err error
 
@@ -179,10 +241,12 @@ func (s *Server) handleToolCall(ctx context.Context, req request) response {
 	case "aegisclaw_verify_logs":
 		result, err = s.toolVerifyLogs()
 	default:
+		s.logToolCall(params.Name, "unknown_tool", nil)
 		return response{JSONRPC: "2.0", ID: req.ID, Error: &rpcError{Code: -32602, Message: fmt.Sprintf("Unknown tool: %s", params.Name)}}
 	}
 
 	if err != nil {
+		s.logToolCall(params.Name, "error", map[string]any{"error": err.Error()})
 		return response{
 			JSONRPC: "2.0",
 			ID:      req.ID,
@@ -194,6 +258,8 @@ func (s *Server) handleToolCall(ctx context.Context, req request) response {
 			},
 		}
 	}
+
+	s.logToolCall(params.Name, "allow", nil)
 
 	text, _ := json.MarshalIndent(result, "", "  ")
 	return response{
@@ -253,6 +319,9 @@ func (s *Server) toolAuditQuery(args json.RawMessage) (interface{}, error) {
 	if params.Limit <= 0 {
 		params.Limit = 20
 	}
+	if params.Limit > maxAuditQueryLimit {
+		params.Limit = maxAuditQueryLimit
+	}
 
 	cfgDir, err := config.DefaultConfigDir()
 	if err != nil {
@@ -304,4 +373,3 @@ func (s *Server) writeError(id json.RawMessage, code int, message string) {
 	}
 	s.writeResponse(resp)
 }
-

@@ -829,12 +829,15 @@ func simulateCmd() *cobra.Command {
 }
 
 func mcpServerCmd() *cobra.Command {
-	return &cobra.Command{
+	var rateLimit int
+	cmd := &cobra.Command{
 		Use:   "mcp-server",
 		Short: "Start the MCP server for AI assistant integration",
 		Long: `Start a Model Context Protocol server on stdio.
 
 This allows AI assistants like Claude Code to interact with AegisClaw.
+Tool calls are rate-limited and recorded to a tamper-evident audit log
+at ~/.aegisclaw/audit/mcp.log.
 
 Configure in your MCP settings:
   {
@@ -847,9 +850,14 @@ Configure in your MCP settings:
   }`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			srv := mcp.NewServer()
+			if cmd.Flags().Changed("rate-limit") {
+				srv.SetRateLimit(rateLimit)
+			}
 			return srv.Run(cmd.Context())
 		},
 	}
+	cmd.Flags().IntVar(&rateLimit, "rate-limit", 120, "Max tool calls per minute (0 disables limiting)")
+	return cmd
 }
 
 func guardrailsCmd() *cobra.Command {

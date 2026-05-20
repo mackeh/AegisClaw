@@ -42,6 +42,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
   (`enabled` + `keys`). Endpoints are scoped by role — viewer (read-only),
   operator (actions), admin (lockdown/unlock). With no auth file present,
   behaviour is unchanged (loopback-only, pass-through).
+- **MCP server hardening**: tool calls are now rate-limited (sliding window,
+  default 120/min, `--rate-limit` flag) and recorded to a dedicated
+  tamper-evident audit log at `~/.aegisclaw/audit/mcp.log` — kept separate
+  from the main chain so the two processes never corrupt each other's hash
+  chain. Added tool-name and audit-query-limit input validation
+  (`internal/mcp/ratelimit.go`).
 - Expanded direct injection and jailbreak pattern sets (system-prompt
   exfiltration, role confusion, `god/admin/debug` mode, hypothetical-framing
   jailbreaks).

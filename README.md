@@ -302,8 +302,9 @@ Troubleshooting
 - [x] **Network-Exposure Safeguard**: `aegisclaw serve` refuses an
   unauthenticated non-loopback bind; the dormant RBAC auth middleware is now
   wired into every API endpoint and gated by `~/.aegisclaw/auth.yaml`.
-- [ ] **MCP Server Hardening**: Per-tool authorization, rate limiting, and
-  audit logging for MCP tool invocations.
+- [x] **MCP Server Hardening**: MCP tool calls are rate-limited and recorded
+  to a dedicated tamper-evident audit log (`~/.aegisclaw/audit/mcp.log`), with
+  input validation on tool names and query bounds.
 - [ ] **Tool-Poisoning Defense**: Pin and hash-verify MCP/skill tool
   descriptions to detect tampering between runs.
 - [ ] **Agentic Loop & Cost Guards**: Detect runaway agent loops; enforce
