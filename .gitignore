@@ -8,6 +8,9 @@
 *.o
 vendor/
 
+# Generated eBPF objects are committed so the repo builds without the BPF toolchain
+!internal/ebpf/*.o
+
 # IDE
 .idea/
 .vscode/
