@@ -280,9 +280,15 @@ aegisclaw harness status                               # 4 planes per agent
 
 ## 8. Phasing
 
-1. **`internal/harness` + adapter interface + generic adapter.** Launch any agent
-   inside the sandbox with egress proxy + scoped ephemeral secrets forced on.
-   Immediate real protection, no protocol work.
+1. **`internal/harness` + adapter interface + generic adapter.** ✅ *Scaffolded.*
+   Launch any agent with the egress proxy + scoped ephemeral secrets forced on,
+   the whole lifecycle recorded to the hash-chained audit log. Shipped as
+   `internal/harness` (`AgentAdapter`, `Registry`, `Supervisor`, `Launcher`) with
+   a `generic` adapter and an `aegisclaw harness run` CLI. The initial `Launcher`
+   is host-subprocess (`ProcessLauncher`); it enforces egress via `HTTP(S)_PROXY`
+   so even a host process is filtered. A sandbox-backed launcher that runs the
+   agent *inside* Docker/gVisor implements the same `Launcher` interface and is
+   the next increment of this phase.
 2. **MCP gateway** (Section 5). Per-call policy/approval/audit + description
    pinning. Closes two unshipped roadmap items.
 3. **LLM proxy.** Inline guardrails + redaction + token/cost/loop budgets. Closes
