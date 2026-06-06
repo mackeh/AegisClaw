@@ -4,7 +4,13 @@ All notable changes to AegisClaw are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.10.0] - 2026-06-06 — Agent Harness Control Plane
+
+This release reframes AegisClaw from a skill executor into an inline **control
+plane that governs a whole running agent** (OpenClaw, Hermes, or any other),
+brokering all four of its action paths — tools, model, network, and host —
+behind one default-deny policy and one tamper-evident audit chain. See
+[`aegisclaw-harness-architecture.md`](aegisclaw-harness-architecture.md).
 
 ### Added
 
