@@ -326,7 +326,14 @@ aegisclaw harness status                               # 4 planes per agent
    probe; Hermes implements the optional `SandboxRequirer` interface so the
    supervisor warns when this code-executing agent runs on the host.
 5. **Dashboard + posture** updated to show the four live planes per agent instead
-   of a single health ping.
+   of a single health ping. ✅ *Done.* `GET /api/harness` reports the four
+   enforcement planes (activity derived from the audit + MCP logs via
+   `harness.SummarizeAudit`) and the registered adapters with their declared risk
+   surface; the dashboard renders an "Agent Control Plane" panel. The numeric
+   posture *score* is intentionally left unchanged — its categories assess
+   configuration, and a usually-zero runtime-activity category would unfairly
+   depress every install's grade; plane status is surfaced in the dashboard
+   instead.
 
 ## 9. Open questions
 

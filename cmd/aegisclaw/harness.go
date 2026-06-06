@@ -8,9 +8,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/harness"
-	"github.com/mackeh/AegisClaw/internal/harness/adapters/generic"
-	"github.com/mackeh/AegisClaw/internal/harness/adapters/hermes"
-	"github.com/mackeh/AegisClaw/internal/harness/adapters/openclaw"
+	"github.com/mackeh/AegisClaw/internal/harness/adapters"
 	"github.com/mackeh/AegisClaw/internal/harness/sandboxlauncher"
 	"github.com/mackeh/AegisClaw/internal/secrets"
 	"github.com/spf13/cobra"
@@ -27,11 +25,7 @@ func defaultStr(v, fallback string) string {
 // the CLI) so the dependency direction stays one-way: adapter packages import
 // internal/harness, never the reverse.
 func harnessRegistry(cfgDir string) *harness.Registry {
-	reg := harness.NewRegistry()
-	reg.Register(generic.New())
-	reg.Register(openclaw.New(cfgDir))
-	reg.Register(hermes.New())
-	return reg
+	return adapters.Default(cfgDir)
 }
 
 func harnessCmd() *cobra.Command {

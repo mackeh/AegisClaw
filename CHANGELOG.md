@@ -60,6 +60,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
   `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` at the proxy). Closes the agentic-loop
   & cost-guard roadmap item.
 
+- **Agent Control Plane dashboard view** (`GET /api/harness`): reports the four
+  enforcement planes (tools, model, network, host) with activity derived from the
+  audit and MCP logs (`harness.SummarizeAudit`), plus the registered adapters and
+  their declared risk surface. The web dashboard renders this as an "Agent
+  Control Plane" panel. A single source of truth for the built-in adapters now
+  lives in `internal/harness/adapters` (used by both the CLI and the server).
+
 ### Notes
 
 - Secret values resolved for an agent are injected only into the process

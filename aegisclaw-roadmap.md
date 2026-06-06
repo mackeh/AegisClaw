@@ -262,7 +262,15 @@ those four action paths. Full design in
   self-generated-skills directory and requires the sandbox (the supervisor warns
   when this code-executing agent is launched on the host). `aegisclaw harness
   run --agent openclaw|hermes`.
-- [ ] **Dashboard + posture** *(next)*: show the four live planes per agent.
+- [x] **Dashboard + posture**: `GET /api/harness` reports the four enforcement
+  planes (activity derived from the audit + MCP logs) and the registered adapters
+  with their declared risk surface; the web dashboard renders an "Agent Control
+  Plane" panel. (The numeric posture score is left unchanged — it scores
+  configuration, not runtime activity.)
+
+**The harness control-plane initiative is complete: all four agent action paths
+— tools, model, network, and host — are brokered, with first-class OpenClaw and
+Hermes adapters and a generic adapter for everything else.**
 
 ### 🔭 v0.10.x — Compliance & Federation
 

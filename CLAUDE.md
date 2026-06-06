@@ -51,7 +51,7 @@ When a skill runs, the path through the codebase is:
 - **Secrets** (`internal/secrets/`) — age encryption (X25519) + `Store` interface. `VaultStore` for HashiCorp Vault KV v2
 - **Config** (`internal/config/`) — YAML config from `~/.aegisclaw/config.yaml`. Includes auth config sections
 - **Skill** (`internal/skill/`) — YAML manifests defining image, commands, scopes. Supports `platform: docker-compose` with per-service scopes. Ed25519 signature verification. Registry client for search/install
-- **Server** (`internal/server/`) — REST API + embedded web dashboard with SSE streaming and WebSocket hub (`/api/ws`). Endpoints under `/api/`. Binds to loopback by default; `bind.go` refuses an unauthenticated non-loopback bind (`--host`/`--insecure`)
+- **Server** (`internal/server/`) — REST API + embedded web dashboard with SSE streaming and WebSocket hub (`/api/ws`). Endpoints under `/api/`, including `/api/harness` (the four agent enforcement planes via `harness.SummarizeAudit` + registered adapters, rendered as the dashboard's "Agent Control Plane" panel). Binds to loopback by default; `bind.go` refuses an unauthenticated non-loopback bind (`--host`/`--insecure`)
 - **Auth** (`internal/server/auth.go`, `authconfig.go`) — RBAC middleware (admin/operator/viewer) with constant-time token comparison, wired into every API endpoint. Config loaded from `~/.aegisclaw/auth.yaml` (`enabled` + `keys`); absent file = disabled pass-through
 - **Doctor** (`internal/doctor/`) — Health checks: OpenClaw adapter config/connectivity + API secret presence, Docker, gVisor, config, policy, secrets, audit, disk space
 - **OpenClaw** (`internal/openclaw/`) — Adapter health model used by CLI doctor and `/api/openclaw/health` (status, latency, readiness, secret wiring)
