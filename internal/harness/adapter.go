@@ -100,6 +100,11 @@ type AgentAdapter interface {
 	// IngressSources lists untrusted-input channels to be guarded.
 	IngressSources() []IngressSource
 
+	// DefaultEgressDomains returns the egress allowlist the agent needs by
+	// default (e.g. its messaging-channel and LLM endpoints). The supervisor
+	// merges these with the user's configured allowlist. Generic returns nil.
+	DefaultEgressDomains() []string
+
 	// PrepareCommand translates the user's argv into the actual process argv
 	// (e.g. an adapter may prefix its agent binary or a subcommand). The
 	// generic adapter returns it unchanged. Returning an error aborts launch.
@@ -107,4 +112,12 @@ type AgentAdapter interface {
 
 	// Health reports whether the adapter and its agent are ready.
 	Health(ctx context.Context) Health
+}
+
+// SandboxRequirer is an optional interface. Adapters for agents that execute
+// their own code (e.g. Hermes) implement it to signal that running outside the
+// sandbox is unsafe; the supervisor warns when such an agent is launched as a
+// host subprocess.
+type SandboxRequirer interface {
+	RequiresSandbox() bool
 }

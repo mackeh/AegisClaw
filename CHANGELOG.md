@@ -23,6 +23,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **`generic` agent adapter** (`internal/harness/adapters/generic`): runs any
   agent that honours standard proxy/endpoint environment variables — the harness
   is not limited to OpenClaw and Hermes.
+- **First-class OpenClaw and Hermes adapters** (`internal/harness/adapters/
+  {openclaw,hermes}`): each declares its scoped secrets, a default egress
+  allowlist for its endpoints (merged into the proxy allowlist by the
+  supervisor), and its ingress surface. OpenClaw declares its messaging channels
+  as ingress and reuses the existing `internal/openclaw` health probe; Hermes
+  declares its self-generated-skills directory and implements a new optional
+  `SandboxRequirer` interface so the supervisor warns when this code-executing
+  agent is launched on the host instead of inside the sandbox. Adapters also
+  contribute a default egress allowlist via the new `AgentAdapter.
+  DefaultEgressDomains` method.
 - **Detached sandbox execution** (`sandbox.DockerExecutor.Start` + `Process`):
   long-lived containers with live log streaming and ctx-driven termination,
   reusing the existing hardened container configuration (refactored into a shared

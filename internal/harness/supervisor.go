@@ -59,8 +59,16 @@ func (s *Supervisor) Run(ctx context.Context, adapter AgentAdapter, userArgs []s
 		return -1, fmt.Errorf("adapter %s produced an empty command", adapter.Name())
 	}
 
+	// Warn loudly if a code-executing agent is run outside the sandbox.
+	if req, ok := adapter.(SandboxRequirer); ok && req.RequiresSandbox() && s.Image == "" {
+		fmt.Printf("⚠️  Agent %q executes its own code and should run inside the sandbox. Re-run with --image <agent-image> for isolation.\n", adapter.Name())
+		s.audit("harness.sandbox.recommended", "warn", actor, map[string]any{"reason": "agent requires sandbox but launched on host"})
+	}
+
 	// --- Network plane: forced egress proxy -----------------------------------
-	ep := proxy.NewEgressProxy(s.AllowedDomains, s.Logger)
+	// Merge the adapter's default egress allowlist with the configured one.
+	allowed := mergeDomains(s.AllowedDomains, adapter.DefaultEgressDomains())
+	ep := proxy.NewEgressProxy(allowed, s.Logger)
 	proxyURL, err := ep.Start()
 	if err != nil {
 		return -1, fmt.Errorf("failed to start egress proxy: %w", err)
@@ -69,9 +77,9 @@ func (s *Supervisor) Run(ctx context.Context, adapter AgentAdapter, userArgs []s
 	s.audit("harness.plane.network", "allow", actor, map[string]any{
 		"plane":     string(PlaneNetwork),
 		"proxy":     proxyURL,
-		"allowlist": s.AllowedDomains,
+		"allowlist": allowed,
 	})
-	if len(s.AllowedDomains) == 0 {
+	if len(allowed) == 0 {
 		fmt.Println("⚠️  Egress allowlist is empty: outbound traffic is filtered through the proxy but not restricted. Set network.allowlist to enforce default-deny.")
 	}
 
@@ -193,4 +201,20 @@ func clearSecrets(m map[string]string) {
 	for k := range m {
 		delete(m, k)
 	}
+}
+
+// mergeDomains unions two egress allowlists, de-duplicating entries.
+func mergeDomains(a, b []string) []string {
+	seen := make(map[string]bool, len(a)+len(b))
+	var out []string
+	for _, list := range [][]string{a, b} {
+		for _, d := range list {
+			if d == "" || seen[d] {
+				continue
+			}
+			seen[d] = true
+			out = append(out, d)
+		}
+	}
+	return out
 }

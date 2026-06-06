@@ -255,10 +255,14 @@ those four action paths. Full design in
   into the harness `Supervisor` (model plane; `harness run --llm-upstream`) and
   available standalone as `aegisclaw gateway llm`. Closes the agentic-loop &
   cost-guard item.
-- [ ] **First-class OpenClaw & Hermes adapters** *(next)*: police each agent's
-  specific risk surface (OpenClaw chat-channel ingress vs. Hermes self-generated
-  skills).
-- [ ] **Dashboard + posture**: show the four live planes per agent.
+- [x] **First-class OpenClaw & Hermes adapters**: each declares its scoped
+  secrets, a default egress allowlist for its endpoints (merged into the proxy
+  allowlist), and its ingress surface. OpenClaw declares its chat channels and
+  reuses the existing `internal/openclaw` health probe; Hermes declares its
+  self-generated-skills directory and requires the sandbox (the supervisor warns
+  when this code-executing agent is launched on the host). `aegisclaw harness
+  run --agent openclaw|hermes`.
+- [ ] **Dashboard + posture** *(next)*: show the four live planes per agent.
 
 ### 🔭 v0.10.x — Compliance & Federation
 

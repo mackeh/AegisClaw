@@ -298,9 +298,23 @@ The agent inherits `HTTP(S)_PROXY` pointing at AegisClaw's egress proxy, so its
 outbound traffic is filtered against `network.allowlist`. Secrets declared by an
 adapter are resolved from the encrypted store and injected as environment
 variables for the process lifetime only — never written to disk or the audit
-log. The adapter model is pluggable (`generic` today; first-class OpenClaw and
-Hermes adapters are in progress), so the harness is **not limited to** any one
-agent. See [`aegisclaw-harness-architecture.md`](aegisclaw-harness-architecture.md)
+log. The adapter model is pluggable, so the harness is **not limited to** any
+one agent. Three adapters ship today:
+
+- **`generic`** — any agent that honours standard proxy/endpoint env vars.
+- **`openclaw`** — declares OpenClaw's chat channels as ingress, ships a default
+  egress allowlist for its channel + LLM endpoints, and reuses the live OpenClaw
+  health probe.
+- **`hermes`** — declares Hermes's self-generated-skills directory as ingress
+  and **requires the sandbox** (Hermes executes its own code), so launching it
+  on the host prints a warning to use `--image`.
+
+```bash
+./aegisclaw harness run --agent openclaw -- up
+./aegisclaw harness run --agent hermes --image hermes:latest -- serve
+```
+
+See [`aegisclaw-harness-architecture.md`](aegisclaw-harness-architecture.md)
 for the full design and roadmap.
 
 ### MCP Gateway — governing agent tool calls

@@ -11,12 +11,14 @@ type stubAdapter struct {
 	name    string
 	wiring  Wiring
 	ingress []IngressSource
+	egress  []string
 	prepare func([]string) ([]string, error)
 }
 
 func (s *stubAdapter) Name() string                    { return s.name }
 func (s *stubAdapter) DefaultWiring() Wiring           { return s.wiring }
 func (s *stubAdapter) IngressSources() []IngressSource { return s.ingress }
+func (s *stubAdapter) DefaultEgressDomains() []string  { return s.egress }
 func (s *stubAdapter) Health(context.Context) Health   { return Health{Status: "ready", Ready: true} }
 func (s *stubAdapter) PrepareCommand(a []string) ([]string, error) {
 	if s.prepare != nil {

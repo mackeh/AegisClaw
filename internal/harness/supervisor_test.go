@@ -128,6 +128,81 @@ func TestSupervisorMissingSecretIsNonFatal(t *testing.T) {
 	}
 }
 
+// sandboxRequirerStub is a stubAdapter that also requires the sandbox.
+type sandboxRequirerStub struct{ *stubAdapter }
+
+func (sandboxRequirerStub) RequiresSandbox() bool { return true }
+
+func TestSupervisorMergesAdapterEgressDomains(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses /bin/sh")
+	}
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "audit.log")
+	logger, err := audit.NewLogger(logPath)
+	if err != nil {
+		t.Fatalf("logger: %v", err)
+	}
+	defer logger.Close()
+
+	adapter := &stubAdapter{
+		name:   "test",
+		egress: []string{"api.telegram.org", "example.com"},
+		prepare: func([]string) ([]string, error) {
+			return []string{"sh", "-c", "exit 0"}, nil
+		},
+	}
+	sup := &Supervisor{
+		Logger:         logger,
+		AllowedDomains: []string{"example.com"}, // overlaps with adapter
+	}
+	if _, err := sup.Run(context.Background(), adapter, []string{"x"}, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	entries, _ := audit.ReadAll(logPath)
+	var allowlist []any
+	for _, e := range entries {
+		if e.Action == "harness.plane.network" {
+			allowlist, _ = e.Details["allowlist"].([]any)
+		}
+	}
+	// Union of {example.com} and {api.telegram.org, example.com} = 2 entries.
+	if len(allowlist) != 2 {
+		t.Fatalf("expected merged+deduped allowlist of 2, got %v", allowlist)
+	}
+}
+
+func TestSupervisorWarnsWhenSandboxRequiredOnHost(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses /bin/sh")
+	}
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "audit.log")
+	logger, _ := audit.NewLogger(logPath)
+	defer logger.Close()
+
+	adapter := sandboxRequirerStub{&stubAdapter{
+		name:    "codeexec",
+		prepare: func([]string) ([]string, error) { return []string{"sh", "-c", "exit 0"}, nil },
+	}}
+	sup := &Supervisor{Logger: logger} // no Image => host launch
+
+	if _, err := sup.Run(context.Background(), adapter, []string{"x"}, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	entries, _ := audit.ReadAll(logPath)
+	var warned bool
+	for _, e := range entries {
+		if e.Action == "harness.sandbox.recommended" {
+			warned = true
+		}
+	}
+	if !warned {
+		t.Fatal("expected harness.sandbox.recommended audit event when a code-executing agent runs on host")
+	}
+}
+
 func containsStr(s []string, want string) bool {
 	for _, v := range s {
 		if v == want {

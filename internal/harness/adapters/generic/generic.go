@@ -31,6 +31,10 @@ func (a *Adapter) DefaultWiring() harness.Wiring {
 // where the agent reads untrusted input.
 func (a *Adapter) IngressSources() []harness.IngressSource { return nil }
 
+// DefaultEgressDomains reports none: the generic adapter does not assume any
+// endpoints. The user's configured allowlist applies.
+func (a *Adapter) DefaultEgressDomains() []string { return nil }
+
 // PrepareCommand runs the user's command unchanged.
 func (a *Adapter) PrepareCommand(userArgs []string) ([]string, error) {
 	if len(userArgs) == 0 {

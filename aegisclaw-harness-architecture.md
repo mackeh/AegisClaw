@@ -262,7 +262,7 @@ the `server` dashboard. Every plane calls into these.
 - `internal/harness` — the `AgentAdapter` interface, the `Registry`, and the
   **supervisor** that launches an agent with all four planes wired.
 - `internal/harness/adapters/{generic,openclaw,hermes}` — the three adapters
-  (`generic` shipped; OpenClaw/Hermes pending).
+  (all shipped).
 - `internal/harness/sandboxlauncher` — the sandbox-backed `Launcher` (keeps the
   Docker dependency out of the core harness package).
 
@@ -320,7 +320,11 @@ aegisclaw harness status                               # 4 planes per agent
    standalone as `aegisclaw gateway llm`. Closes the agentic-loop/cost-guard
    item.
 4. **First-class OpenClaw & Hermes adapters** policing each one's specific risk
-   surface (channels vs. self-generated skills).
+   surface (channels vs. self-generated skills). ✅ *Done.* Each declares scoped
+   secrets, a default egress allowlist (merged into the proxy allowlist), and
+   ingress sources. OpenClaw reuses the existing `internal/openclaw` health
+   probe; Hermes implements the optional `SandboxRequirer` interface so the
+   supervisor warns when this code-executing agent runs on the host.
 5. **Dashboard + posture** updated to show the four live planes per agent instead
    of a single health ping.
 

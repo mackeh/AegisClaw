@@ -9,6 +9,8 @@ import (
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/harness"
 	"github.com/mackeh/AegisClaw/internal/harness/adapters/generic"
+	"github.com/mackeh/AegisClaw/internal/harness/adapters/hermes"
+	"github.com/mackeh/AegisClaw/internal/harness/adapters/openclaw"
 	"github.com/mackeh/AegisClaw/internal/harness/sandboxlauncher"
 	"github.com/mackeh/AegisClaw/internal/secrets"
 	"github.com/spf13/cobra"
@@ -24,9 +26,11 @@ func defaultStr(v, fallback string) string {
 // harnessRegistry builds the adapter registry. Adapters are registered here (in
 // the CLI) so the dependency direction stays one-way: adapter packages import
 // internal/harness, never the reverse.
-func harnessRegistry() *harness.Registry {
+func harnessRegistry(cfgDir string) *harness.Registry {
 	reg := harness.NewRegistry()
 	reg.Register(generic.New())
+	reg.Register(openclaw.New(cfgDir))
+	reg.Register(hermes.New())
 	return reg
 }
 
@@ -66,7 +70,7 @@ optionally selecting a stronger runtime with --runtime gvisor.`,
 				return err
 			}
 
-			reg := harnessRegistry()
+			reg := harnessRegistry(cfgDir)
 			adapter, err := reg.Get(agentName)
 			if err != nil {
 				return err
@@ -136,8 +140,9 @@ optionally selecting a stronger runtime with --runtime gvisor.`,
 		Use:   "list",
 		Short: "List available agent adapters",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cfgDir, _ := config.DefaultConfigDir()
 			fmt.Println("🔌 Available agent adapters:")
-			for _, n := range harnessRegistry().Names() {
+			for _, n := range harnessRegistry(cfgDir).Names() {
 				fmt.Printf("   • %s\n", n)
 			}
 			return nil
