@@ -82,7 +82,7 @@ func TestCalcNetwork_Empty(t *testing.T) {
 
 func TestParseTop(t *testing.T) {
 	top := container.ContainerTopOKBody{
-		Titles: []string{"PID", "USER", "COMMAND"},
+		Titles:    []string{"PID", "USER", "COMMAND"},
 		Processes: [][]string{
 			{"1", "root", "/bin/sh"},
 			{"42", "app", "python main.py"},
@@ -104,7 +104,7 @@ func TestParseTop(t *testing.T) {
 
 func TestParseTop_MissingColumns(t *testing.T) {
 	top := container.ContainerTopOKBody{
-		Titles: []string{"UID", "PID"},
+		Titles:    []string{"UID", "PID"},
 		Processes: [][]string{
 			{"root", "1"},
 		},

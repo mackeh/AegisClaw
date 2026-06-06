@@ -15,15 +15,15 @@ import (
 
 // Snapshot represents a point-in-time inspection of a running container.
 type Snapshot struct {
-	ContainerID   string         `json:"container_id"`
-	ContainerName string         `json:"container_name"`
-	Image         string         `json:"image"`
-	Status        string         `json:"status"`
-	StartedAt     string         `json:"started_at"`
-	Resources     ResourceStats  `json:"resources"`
-	Processes     []ProcessInfo  `json:"processes,omitempty"`
-	Network       []NetworkStats `json:"network,omitempty"`
-	Timestamp     string         `json:"timestamp"`
+	ContainerID   string          `json:"container_id"`
+	ContainerName string          `json:"container_name"`
+	Image         string          `json:"image"`
+	Status        string          `json:"status"`
+	StartedAt     string          `json:"started_at"`
+	Resources     ResourceStats   `json:"resources"`
+	Processes     []ProcessInfo   `json:"processes,omitempty"`
+	Network       []NetworkStats  `json:"network,omitempty"`
+	Timestamp     string          `json:"timestamp"`
 }
 
 // ResourceStats holds CPU and memory usage data.

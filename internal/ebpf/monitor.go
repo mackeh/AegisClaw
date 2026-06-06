@@ -19,22 +19,22 @@ import (
 type EventType string
 
 const (
-	EventSyscall     EventType = "syscall"
-	EventNetConnect  EventType = "net_connect"
-	EventNetBind     EventType = "net_bind"
-	EventFileOpen    EventType = "file_open"
-	EventFileWrite   EventType = "file_write"
+	EventSyscall    EventType = "syscall"
+	EventNetConnect EventType = "net_connect"
+	EventNetBind    EventType = "net_bind"
+	EventFileOpen   EventType = "file_open"
+	EventFileWrite  EventType = "file_write"
 	EventProcessExec EventType = "process_exec"
 )
 
 // Event represents a single kernel-level event captured by eBPF probes.
 type Event struct {
-	Type        EventType `json:"type"`
-	Timestamp   time.Time `json:"timestamp"`
-	PID         uint32    `json:"pid"`
-	TID         uint32    `json:"tid"`
-	Comm        string    `json:"comm"` // process name
-	ContainerID string    `json:"container_id,omitempty"`
+	Type      EventType `json:"type"`
+	Timestamp time.Time `json:"timestamp"`
+	PID       uint32    `json:"pid"`
+	TID       uint32    `json:"tid"`
+	Comm      string    `json:"comm"`       // process name
+	ContainerID string  `json:"container_id,omitempty"`
 
 	// Syscall fields
 	Syscall string `json:"syscall,omitempty"`
@@ -61,8 +61,8 @@ type ProbeConfig struct {
 	TraceNetwork  bool     `json:"trace_network"`
 	TraceFiles    bool     `json:"trace_files"`
 	TraceProcess  bool     `json:"trace_process"`
-	FilterPIDs    []uint32 `json:"filter_pids,omitempty"` // only trace these PIDs
-	FilterComm    []string `json:"filter_comm,omitempty"` // only trace these process names
+	FilterPIDs    []uint32 `json:"filter_pids,omitempty"`    // only trace these PIDs
+	FilterComm    []string `json:"filter_comm,omitempty"`    // only trace these process names
 }
 
 // Monitor manages eBPF probe lifecycle and event streaming.
@@ -78,18 +78,18 @@ type Monitor struct {
 
 // MonitorStats tracks monitoring metrics.
 type MonitorStats struct {
-	EventsTotal   uint64               `json:"events_total"`
+	EventsTotal   uint64        `json:"events_total"`
 	EventsByType  map[EventType]uint64 `json:"events_by_type"`
-	DroppedEvents uint64               `json:"dropped_events"`
-	StartedAt     time.Time            `json:"started_at"`
-	Uptime        time.Duration        `json:"uptime"`
+	DroppedEvents uint64        `json:"dropped_events"`
+	StartedAt     time.Time     `json:"started_at"`
+	Uptime        time.Duration `json:"uptime"`
 }
 
 // NewMonitor creates a new eBPF monitor with the given probe configuration.
 func NewMonitor(config ProbeConfig) *Monitor {
 	return &Monitor{
-		config: config,
-		events: make(chan Event, 4096),
+		config:  config,
+		events:  make(chan Event, 4096),
 		stats: MonitorStats{
 			EventsByType: make(map[EventType]uint64),
 		},

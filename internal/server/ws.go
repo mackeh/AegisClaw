@@ -17,12 +17,12 @@ import (
 type EventType string
 
 const (
-	EventAudit     EventType = "audit"
-	EventStatus    EventType = "status"
-	EventExecution EventType = "execution"
-	EventAnomaly   EventType = "anomaly"
-	EventLockdown  EventType = "lockdown"
-	EventPosture   EventType = "posture"
+	EventAudit      EventType = "audit"
+	EventStatus     EventType = "status"
+	EventExecution  EventType = "execution"
+	EventAnomaly    EventType = "anomaly"
+	EventLockdown   EventType = "lockdown"
+	EventPosture    EventType = "posture"
 )
 
 // WSEvent is a single message sent to WebSocket clients.
