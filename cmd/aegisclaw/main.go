@@ -65,6 +65,7 @@ human-in-the-loop approvals, encrypted secrets, and tamper-evident audit logging
 	rootCmd.AddCommand(initCmd())
 	rootCmd.AddCommand(runCmd())
 	rootCmd.AddCommand(harnessCmd())
+	rootCmd.AddCommand(gatewayCmd())
 	rootCmd.AddCommand(policyCmd())
 	rootCmd.AddCommand(secretsCmd())
 	rootCmd.AddCommand(logsCmd())

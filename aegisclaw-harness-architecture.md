@@ -167,7 +167,7 @@ A `Registry` maps adapter names to implementations; `aegisclaw harness run
 This mirrors the agents' real architectures (Hermes = loop+tools; OpenClaw =
 gateway+channels) instead of pretending both are "a container we launch."
 
-## 5. Priority plane: the MCP gateway
+## 5. Priority plane: the MCP gateway — ✅ shipped
 
 This is the single highest-leverage change and the first to build. It is also
 where the entire industry is converging (Kong AI MCP Proxy, Azure APIM, Operant,
@@ -298,8 +298,15 @@ aegisclaw harness status                               # 4 planes per agent
      environment is not inherited. This completes the "agent runs inside the
      sandbox" goal and reuses the existing `internal/sandbox` hardening via a new
      detached `DockerExecutor.Start` entry point.
-2. **MCP gateway** (Section 5). Per-call policy/approval/audit + description
-   pinning. Closes two unshipped roadmap items.
+2. **MCP gateway** (Section 5). ✅ *Done.* Per-call policy/approval/audit +
+   description pinning. Shipped as `mcp.Gateway` (an inline proxy over a
+   `Downstream`; `StdioDownstream` spawns a real MCP server over stdio) with
+   `mcp.PinStore` for tool-description hash-pinning and the `aegisclaw gateway
+   mcp` / `gateway pins` CLI. Reuses `policy`, `guardrails`, `audit`, `scope`,
+   and the existing rate limiter; runs non-interactively, so RequireApproval
+   resolves against persisted "always" grants and otherwise default-denies.
+   Closes two unshipped roadmap items (tool-poisoning defense; untrusted
+   tool-call surface).
 3. **LLM proxy.** Inline guardrails + redaction + token/cost/loop budgets. Closes
    the loop-guard item.
 4. **First-class OpenClaw & Hermes adapters** policing each one's specific risk

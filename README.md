@@ -303,6 +303,31 @@ Hermes adapters are in progress), so the harness is **not limited to** any one
 agent. See [`aegisclaw-harness-architecture.md`](aegisclaw-harness-architecture.md)
 for the full design and roadmap.
 
+### MCP Gateway — governing agent tool calls
+
+Modern agents reach their tools over the **Model Context Protocol**. The
+`gateway` command turns AegisClaw into an inline MCP proxy: the agent points its
+MCP client at AegisClaw, and AegisClaw forwards only vetted tool calls to the
+real downstream server.
+
+```bash
+# Proxy an MCP server; every tool call is policy-checked, guardrail-scanned, and audited
+./aegisclaw gateway mcp -- npx -y @modelcontextprotocol/server-filesystem /tmp
+
+# Inspect / re-approve pinned tool descriptions (tool-poisoning defense)
+./aegisclaw gateway pins list
+./aegisclaw gateway pins reset some_tool
+```
+
+Each `tools/call` runs through: rate limiting → scope→policy decision →
+persistent approval → argument guardrail scan → forward → response guardrail
+scan → hash-chained audit. `tools/list` **hash-pins** every tool's description
+and schema; if a server silently changes a tool after it was first approved
+(a tool-poisoning / rug-pull attack), the gateway quarantines that tool and
+blocks its calls until an operator re-approves it. Because the gateway runs
+non-interactively, a `require_approval` policy decision is honoured only if an
+`always` grant already exists — otherwise the call is denied by default.
+
 ## 🗺️ Roadmap
 
 ### Completed
@@ -371,8 +396,8 @@ for the full design and roadmap.
 - [x] **MCP Server Hardening**: MCP tool calls are rate-limited and recorded
   to a dedicated tamper-evident audit log (`~/.aegisclaw/audit/mcp.log`), with
   input validation on tool names and query bounds.
-- [ ] **Tool-Poisoning Defense**: Pin and hash-verify MCP/skill tool
-  descriptions to detect tampering between runs.
+- [x] **Tool-Poisoning Defense**: The MCP gateway hash-pins tool descriptions
+  and schemas and quarantines any that change after first approval.
 - [ ] **Agentic Loop & Cost Guards**: Detect runaway agent loops; enforce
   per-skill and per-session token/cost budgets.
 - [ ] **Skill Supply-Chain Security**: SBOM generation and image vulnerability

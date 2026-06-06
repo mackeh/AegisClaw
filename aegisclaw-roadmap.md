@@ -213,10 +213,11 @@ hardening that case study motivated both shipped in v0.9.0.
 
 ### 🔭 v0.9.x — Remaining Threat-Hardening Work
 
-- **Tool-poisoning defense**: pin and hash-verify MCP/skill tool descriptions;
-  re-prompt for approval when a description changes.
+- [x] **Tool-poisoning defense**: the MCP gateway hash-pins tool descriptions
+  and schemas, quarantining any tool that changes after first approval until an
+  operator re-approves it (`mcp.PinStore`; see Harness Control Plane Phase 2).
 - **Agentic loop & cost guards**: detect self-prompting loops; enforce per-skill
-  and per-session token/cost budgets.
+  and per-session token/cost budgets. *(coming with harness Phase 3 — LLM proxy.)*
 - **Skill supply-chain security**: SBOM generation and image vulnerability
   scanning for skills, backed by a signature transparency log.
 
@@ -237,12 +238,17 @@ those four action paths. Full design in
   whole lifecycle to the hash-chained audit log. Two launchers: host-subprocess
   (default) and **in-sandbox** (`--image`, hardened container, `--runtime
   gvisor`) backed by a new detached `DockerExecutor.Start`.
-- [ ] **Phase 2 — MCP gateway** *(next)*: convert `internal/mcp` from a server
-  exposing AegisClaw's own tools into an inline proxy between the agent and its
-  real MCP servers, with per-call policy/approval/audit and tool-description
-  hash-pinning (the tool-poisoning defense).
-- [ ] **Phase 3 — LLM proxy**: OpenAI/Anthropic-compatible reverse proxy doing
-  inline guardrails + redaction + token/cost/loop budgets.
+- [x] **Phase 2 — MCP gateway**: `mcp.Gateway` is an inline proxy between the
+  agent and a real downstream MCP server (`mcp.StdioDownstream`). Every
+  `tools/call` runs a per-call pipeline — rate limit → scope→policy decision →
+  persistent approval → argument guardrail scan → forward → response guardrail
+  scan → hash-chained audit — and `tools/list` hash-pins tool descriptions
+  (`mcp.PinStore`), quarantining any that change since first approval
+  (tool-poisoning / rug-pull defense). CLI: `aegisclaw gateway mcp` and
+  `gateway pins list/reset`. Closes the unshipped tool-poisoning-defense and
+  untrusted-tool-call-surface items.
+- [ ] **Phase 3 — LLM proxy** *(next)*: OpenAI/Anthropic-compatible reverse
+  proxy doing inline guardrails + redaction + token/cost/loop budgets.
 - [ ] **First-class OpenClaw & Hermes adapters**: police each agent's specific
   risk surface (OpenClaw chat-channel ingress vs. Hermes self-generated skills).
 - [ ] **Dashboard + posture**: show the four live planes per agent.

@@ -27,6 +27,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
   long-lived containers with live log streaming and ctx-driven termination,
   reusing the existing hardened container configuration (refactored into a shared
   `hardenedConfigs` helper). Backs `internal/harness/sandboxlauncher`.
+- **MCP gateway** (`mcp.Gateway` + `mcp.StdioDownstream`): an inline Model
+  Context Protocol proxy between an agent and a real downstream MCP server. Every
+  `tools/call` is checked through a pipeline — rate limit → scope→policy
+  decision → persistent approval → argument guardrail scan → forward → response
+  guardrail scan → hash-chained audit (`audit/mcp.log`) — before it can reach the
+  downstream. Reuses `policy`, `guardrails`, `scope`, and the existing rate
+  limiter. CLI: `aegisclaw gateway mcp -- <server cmd…>`.
+- **MCP tool-description pinning** (`mcp.PinStore`): `tools/list` hash-pins each
+  tool's name, description, and input schema (trust-on-first-use). A tool whose
+  fingerprint changes after first approval is quarantined and its calls blocked
+  until an operator re-approves it via `aegisclaw gateway pins reset` — a defense
+  against tool-poisoning / rug-pull attacks.
 
 ### Notes
 
