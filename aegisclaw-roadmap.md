@@ -213,12 +213,64 @@ hardening that case study motivated both shipped in v0.9.0.
 
 ### 🔭 v0.9.x — Remaining Threat-Hardening Work
 
-- **Tool-poisoning defense**: pin and hash-verify MCP/skill tool descriptions;
-  re-prompt for approval when a description changes.
-- **Agentic loop & cost guards**: detect self-prompting loops; enforce per-skill
-  and per-session token/cost budgets.
+- [x] **Tool-poisoning defense**: the MCP gateway hash-pins tool descriptions
+  and schemas, quarantining any tool that changes after first approval until an
+  operator re-approves it (`mcp.PinStore`; see Harness Control Plane Phase 2).
+- [x] **Agentic loop & cost guards**: the LLM proxy detects runaway
+  self-prompting loops and enforces per-session token/cost/request budgets
+  (`internal/llmproxy`; see Harness Control Plane Phase 3).
 - **Skill supply-chain security**: SBOM generation and image vulnerability
   scanning for skills, backed by a signature transparency log.
+
+### 🚧 Harness Control Plane — Governing Live Agents
+
+A structural initiative running alongside the threat-hardening work. Today
+AegisClaw's enforcement hangs off `agent.ExecuteSkill` — skills it launches
+itself — while real agents (OpenClaw, Hermes) run as independent processes whose
+tool calls, model calls, network, and file access AegisClaw never sees. This
+initiative reframes AegisClaw as an **inline agent control plane** that brokers
+those four action paths. Full design in
+[`aegisclaw-harness-architecture.md`](aegisclaw-harness-architecture.md).
+
+- [x] **Phase 1 — Harness scaffold + generic adapter**: `internal/harness`
+  (`AgentAdapter`, `Registry`, `Supervisor`, pluggable `Launcher`) with a
+  `generic` adapter and `aegisclaw harness run/list`. Forces a filtering egress
+  proxy and scoped, ephemeral secret injection onto the agent, recording the
+  whole lifecycle to the hash-chained audit log. Two launchers: host-subprocess
+  (default) and **in-sandbox** (`--image`, hardened container, `--runtime
+  gvisor`) backed by a new detached `DockerExecutor.Start`.
+- [x] **Phase 2 — MCP gateway**: `mcp.Gateway` is an inline proxy between the
+  agent and a real downstream MCP server (`mcp.StdioDownstream`). Every
+  `tools/call` runs a per-call pipeline — rate limit → scope→policy decision →
+  persistent approval → argument guardrail scan → forward → response guardrail
+  scan → hash-chained audit — and `tools/list` hash-pins tool descriptions
+  (`mcp.PinStore`), quarantining any that change since first approval
+  (tool-poisoning / rug-pull defense). CLI: `aegisclaw gateway mcp` and
+  `gateway pins list/reset`. Closes the unshipped tool-poisoning-defense and
+  untrusted-tool-call-surface items.
+- [x] **Phase 3 — LLM proxy**: `llmproxy.Proxy` is an OpenAI/Anthropic-
+  compatible reverse proxy that scans prompts and responses with the guardrails
+  engine, scrubs secrets from responses, enforces per-session token/cost/request
+  budgets, detects runaway self-prompting loops, and audits every call. Wired
+  into the harness `Supervisor` (model plane; `harness run --llm-upstream`) and
+  available standalone as `aegisclaw gateway llm`. Closes the agentic-loop &
+  cost-guard item.
+- [x] **First-class OpenClaw & Hermes adapters**: each declares its scoped
+  secrets, a default egress allowlist for its endpoints (merged into the proxy
+  allowlist), and its ingress surface. OpenClaw declares its chat channels and
+  reuses the existing `internal/openclaw` health probe; Hermes declares its
+  self-generated-skills directory and requires the sandbox (the supervisor warns
+  when this code-executing agent is launched on the host). `aegisclaw harness
+  run --agent openclaw|hermes`.
+- [x] **Dashboard + posture**: `GET /api/harness` reports the four enforcement
+  planes (activity derived from the audit + MCP logs) and the registered adapters
+  with their declared risk surface; the web dashboard renders an "Agent Control
+  Plane" panel. (The numeric posture score is left unchanged — it scores
+  configuration, not runtime activity.)
+
+**The harness control-plane initiative is complete: all four agent action paths
+— tools, model, network, and host — are brokered, with first-class OpenClaw and
+Hermes adapters and a generic adapter for everything else.**
 
 ### 🔭 v0.10.x — Compliance & Federation
 

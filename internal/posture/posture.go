@@ -22,11 +22,11 @@ const (
 
 // Score holds the posture assessment result.
 type Score struct {
-	Total       int              `json:"total"`
-	Max         int              `json:"max"`
-	Percentage  int              `json:"percentage"`
-	Grade       Grade            `json:"grade"`
-	Categories  []CategoryScore  `json:"categories"`
+	Total      int             `json:"total"`
+	Max        int             `json:"max"`
+	Percentage int             `json:"percentage"`
+	Grade      Grade           `json:"grade"`
+	Categories []CategoryScore `json:"categories"`
 }
 
 // CategoryScore holds the score for a single category.

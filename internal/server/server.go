@@ -12,6 +12,8 @@ import (
 	"github.com/mackeh/AegisClaw/internal/agent"
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
+	"github.com/mackeh/AegisClaw/internal/harness"
+	"github.com/mackeh/AegisClaw/internal/harness/adapters"
 	"github.com/mackeh/AegisClaw/internal/openclaw"
 	"github.com/mackeh/AegisClaw/internal/sandbox"
 	"github.com/mackeh/AegisClaw/internal/server/ui"
@@ -88,6 +90,7 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/logs/verify", guard(RoleViewer, s.handleVerifyLogs))
 	http.HandleFunc("/api/system/status", guard(RoleViewer, s.handleSystemStatus))
 	http.HandleFunc("/api/openclaw/health", guard(RoleViewer, s.handleOpenClawHealth))
+	http.HandleFunc("/api/harness", guard(RoleViewer, s.handleHarness))
 	http.HandleFunc("/api/registry/search", guard(RoleViewer, s.handleRegistrySearch))
 	http.HandleFunc("/api/xray", guard(RoleViewer, s.handleXray))
 	http.HandleFunc("/api/ws", guard(RoleViewer, s.Hub.ServeWS))
@@ -169,6 +172,62 @@ func (s *Server) handleXray(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"containers": snapshots,
 		"count":      len(snapshots),
+	})
+}
+
+// handleHarness reports the four agent enforcement planes (derived from the
+// audit log) and the registered agent adapters with their declared risk
+// surface, for the dashboard's Agent Control Plane view.
+func (s *Server) handleHarness(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	cfgDir, err := config.DefaultConfigDir()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to resolve config directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Plane activity is derived from both the main and MCP audit logs.
+	var entries []audit.Entry
+	for _, name := range []string{"audit.log", "mcp.log"} {
+		e, _ := audit.ReadAll(filepath.Join(cfgDir, "audit", name))
+		entries = append(entries, e...)
+	}
+	summary := harness.SummarizeAudit(entries)
+
+	type adapterInfo struct {
+		Name            string   `json:"name"`
+		IngressSources  int      `json:"ingress_sources"`
+		EgressDomains   []string `json:"egress_domains"`
+		RequiresSandbox bool     `json:"requires_sandbox"`
+	}
+	reg := adapters.Default(cfgDir)
+	var infos []adapterInfo
+	for _, name := range reg.Names() {
+		a, err := reg.Get(name)
+		if err != nil {
+			continue
+		}
+		info := adapterInfo{
+			Name:           name,
+			IngressSources: len(a.IngressSources()),
+			EgressDomains:  a.DefaultEgressDomains(),
+		}
+		if req, ok := a.(harness.SandboxRequirer); ok {
+			info.RequiresSandbox = req.RequiresSandbox()
+		}
+		infos = append(infos, info)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(map[string]any{
+		"planes":    summary.Planes,
+		"sessions":  summary.Sessions,
+		"last_seen": summary.LastSeen,
+		"adapters":  infos,
 	})
 }
 

@@ -38,19 +38,8 @@ func NewDockerExecutor() (*DockerExecutor, error) {
 // Run executes a command in a hardened Docker container
 func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 	// 1. Ensure image exists
-	_, _, err := e.cli.ImageInspectWithRaw(ctx, cfg.Image)
-	if err != nil {
-		if client.IsErrNotFound(err) {
-			fmt.Printf("📥 Pulling image %s...\n", cfg.Image)
-			reader, err := e.cli.ImagePull(ctx, cfg.Image, image.PullOptions{})
-			if err != nil {
-				return nil, fmt.Errorf("failed to pull image: %w", err)
-			}
-			defer reader.Close()
-			io.Copy(io.Discard, reader)
-		} else {
-			return nil, fmt.Errorf("failed to inspect image: %w", err)
-		}
+	if err := e.ensureImage(ctx, cfg.Image); err != nil {
+		return nil, err
 	}
 
 	// Dynamic Network Configuration
@@ -79,82 +68,8 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 		}
 	}
 
-	// 2. Configure HostConfig for security
-	hostConfig := &container.HostConfig{
-		Runtime: cfg.Runtime,
-		// Drop ALL capabilities by default
-		CapDrop: []string{"ALL"},
-
-		// Prevent privilege escalation
-		SecurityOpt: []string{"no-new-privileges"},
-
-		// Read-only root filesystem
-		ReadonlyRootfs: true,
-
-		// Resources
-		Resources: container.Resources{
-			Memory:     512 * 1024 * 1024, // 512MB RAM limit
-			MemorySwap: 512 * 1024 * 1024, // No swap
-			NanoCPUs:   1000000000,        // 1 CPU
-			PidsLimit:  &[]int64{100}[0],  // Limit processes
-		},
-		// Allow talking to host for the proxy
-		ExtraHosts: []string{"host.docker.internal:host-gateway"},
-	}
-
-	// Apply Seccomp profile if provided
-	if cfg.SeccompPath != "" {
-		absPath, err := filepath.Abs(cfg.SeccompPath)
-		if err == nil {
-			// Docker expects the profile content, or "unconfined", or "default"
-			// But for custom profiles file path is tricky with remote daemon.
-			// For local daemon, we can read the file and pass it as json string.
-			profileData, err := os.ReadFile(absPath)
-			if err == nil {
-				hostConfig.SecurityOpt = append(hostConfig.SecurityOpt, fmt.Sprintf("seccomp=%s", string(profileData)))
-			}
-		}
-	}
-
-	// Configure Mounts
-	var mounts []mount.Mount
-	for _, m := range cfg.Mounts {
-		mounts = append(mounts, mount.Mount{
-			Type:     mount.TypeBind,
-			Source:   m.Source,
-			Target:   m.Target,
-			ReadOnly: m.ReadOnly,
-		})
-	}
-	// Always mount a tmpfs for /tmp if filesystem is read-only
-	mounts = append(mounts, mount.Mount{
-		Type:   mount.TypeTmpfs,
-		Target: "/tmp",
-	})
-	hostConfig.Mounts = mounts
-
-	// Configure Network
-	if cfg.Network {
-		hostConfig.NetworkMode = "bridge" // Use default bridge network
-	} else {
-		hostConfig.NetworkMode = "none" // No network access by default
-	}
-
-	// 2. Create Container
-	containerEnv := append(cfg.Env, proxyEnv...)
-	config := &container.Config{
-		Image:        cfg.Image,
-		Cmd:          cfg.Command,
-		Env:          containerEnv,
-		WorkingDir:   cfg.WorkDir,
-		User:         "1000:1000", // Non-root user
-		AttachStdout: true,
-		AttachStderr: true,
-		Tty:          false,
-		Labels: map[string]string{
-			"managed_by": "aegisclaw",
-		},
-	}
+	// 2. Build hardened container + host config (shared with Start).
+	config, hostConfig := hardenedConfigs(cfg, proxyEnv)
 
 	resp, err := e.cli.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, nil, "")
 	if err != nil {
@@ -209,6 +124,179 @@ func (e *DockerExecutor) Run(ctx context.Context, cfg Config) (*Result, error) {
 		return nil, ctx.Err()
 	}
 }
+
+// ensureImage pulls the image if it is not already present locally.
+func (e *DockerExecutor) ensureImage(ctx context.Context, img string) error {
+	if _, _, err := e.cli.ImageInspectWithRaw(ctx, img); err == nil {
+		return nil
+	} else if !client.IsErrNotFound(err) {
+		return fmt.Errorf("failed to inspect image: %w", err)
+	}
+
+	fmt.Printf("📥 Pulling image %s...\n", img)
+	reader, err := e.cli.ImagePull(ctx, img, image.PullOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to pull image: %w", err)
+	}
+	defer reader.Close()
+	_, _ = io.Copy(io.Discard, reader)
+	return nil
+}
+
+// hardenedConfigs builds the security-hardened container and host configuration
+// shared by Run (one-shot skills) and Start (detached agents). extraEnv is
+// appended to the caller's environment, e.g. egress proxy variables.
+func hardenedConfigs(cfg Config, extraEnv []string) (*container.Config, *container.HostConfig) {
+	hostConfig := &container.HostConfig{
+		Runtime:        cfg.Runtime,
+		CapDrop:        []string{"ALL"},               // Drop ALL capabilities
+		SecurityOpt:    []string{"no-new-privileges"}, // No privilege escalation
+		ReadonlyRootfs: true,                          // Read-only root filesystem
+		Resources: container.Resources{
+			Memory:     512 * 1024 * 1024, // 512MB RAM limit
+			MemorySwap: 512 * 1024 * 1024, // No swap
+			NanoCPUs:   1000000000,        // 1 CPU
+			PidsLimit:  &[]int64{100}[0],  // Limit processes
+		},
+		ExtraHosts: []string{"host.docker.internal:host-gateway"}, // Reach host proxy
+	}
+
+	// Apply Seccomp profile if provided (read content for local-daemon compatibility).
+	if cfg.SeccompPath != "" {
+		if absPath, err := filepath.Abs(cfg.SeccompPath); err == nil {
+			if profileData, err := os.ReadFile(absPath); err == nil {
+				hostConfig.SecurityOpt = append(hostConfig.SecurityOpt, fmt.Sprintf("seccomp=%s", string(profileData)))
+			}
+		}
+	}
+
+	var mounts []mount.Mount
+	for _, m := range cfg.Mounts {
+		mounts = append(mounts, mount.Mount{
+			Type:     mount.TypeBind,
+			Source:   m.Source,
+			Target:   m.Target,
+			ReadOnly: m.ReadOnly,
+		})
+	}
+	// Always provide a writable tmpfs for /tmp since the rootfs is read-only.
+	mounts = append(mounts, mount.Mount{Type: mount.TypeTmpfs, Target: "/tmp"})
+	hostConfig.Mounts = mounts
+
+	if cfg.Network {
+		hostConfig.NetworkMode = "bridge"
+	} else {
+		hostConfig.NetworkMode = "none" // Default-deny network
+	}
+
+	config := &container.Config{
+		Image:        cfg.Image,
+		Cmd:          cfg.Command,
+		Env:          append(cfg.Env, extraEnv...),
+		WorkingDir:   cfg.WorkDir,
+		User:         "1000:1000", // Non-root user
+		AttachStdout: true,
+		AttachStderr: true,
+		Tty:          false,
+		Labels:       map[string]string{"managed_by": "aegisclaw"},
+	}
+	return config, hostConfig
+}
+
+// Process is a running, detached sandboxed container managed by AegisClaw.
+type Process struct {
+	cli         *client.Client
+	containerID string
+	exitCh      chan procExit
+	done        chan struct{}
+}
+
+type procExit struct {
+	code int
+	err  error
+}
+
+// Start creates and starts a hardened container running cfg.Command, streams
+// its stdout/stderr to the provided writers, and returns a handle without
+// waiting for exit. It is the entry point the harness uses to run a long-lived
+// agent process inside the sandbox.
+//
+// Unlike Run, Start does not manage an egress proxy: callers that need egress
+// filtering inject proxy environment variables via cfg.Env and set cfg.Network
+// to true. Cancelling ctx force-stops the container.
+func (e *DockerExecutor) Start(ctx context.Context, cfg Config, stdout, stderr io.Writer) (*Process, error) {
+	if err := e.ensureImage(ctx, cfg.Image); err != nil {
+		return nil, err
+	}
+
+	config, hostConfig := hardenedConfigs(cfg, nil)
+	resp, err := e.cli.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, nil, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create container: %w", err)
+	}
+	id := resp.ID
+
+	if err := e.cli.ContainerStart(ctx, id, container.StartOptions{}); err != nil {
+		_ = e.cli.ContainerRemove(context.Background(), id, container.RemoveOptions{Force: true})
+		return nil, fmt.Errorf("failed to start container: %w", err)
+	}
+
+	logs, err := e.cli.ContainerLogs(ctx, id, container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true})
+	if err != nil {
+		_ = e.cli.ContainerRemove(context.Background(), id, container.RemoveOptions{Force: true})
+		return nil, fmt.Errorf("failed to attach logs: %w", err)
+	}
+	go func() {
+		defer logs.Close()
+		if stdout == nil {
+			stdout = io.Discard
+		}
+		if stderr == nil {
+			stderr = io.Discard
+		}
+		_, _ = stdcopy.StdCopy(stdout, stderr, logs)
+	}()
+
+	p := &Process{cli: e.cli, containerID: id, exitCh: make(chan procExit, 1), done: make(chan struct{})}
+
+	go func() {
+		statusCh, errCh := e.cli.ContainerWait(context.Background(), id, container.WaitConditionNotRunning)
+		select {
+		case werr := <-errCh:
+			p.exitCh <- procExit{code: -1, err: werr}
+		case status := <-statusCh:
+			p.exitCh <- procExit{code: int(status.StatusCode)}
+		}
+		close(p.done)
+		_ = e.cli.ContainerRemove(context.Background(), id, container.RemoveOptions{Force: true})
+	}()
+
+	// Tie ctx cancellation to container termination.
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = p.Stop()
+		case <-p.done:
+		}
+	}()
+
+	return p, nil
+}
+
+// Wait blocks until the container exits and returns its exit code. A non-zero
+// exit code is not an error; err is non-nil only for unexpected failures.
+func (p *Process) Wait() (int, error) {
+	r := <-p.exitCh
+	return r.code, r.err
+}
+
+// Stop force-stops the container.
+func (p *Process) Stop() error {
+	return p.cli.ContainerKill(context.Background(), p.containerID, "SIGKILL")
+}
+
+// ContainerID returns the underlying container ID.
+func (p *Process) ContainerID() string { return p.containerID }
 
 // KillAll force-stops and removes all containers managed by AegisClaw
 func (e *DockerExecutor) KillAll(ctx context.Context) error {

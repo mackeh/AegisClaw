@@ -4,6 +4,76 @@ All notable changes to AegisClaw are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Agent harness control plane** (`internal/harness/`): wraps a *whole running
+  agent* (OpenClaw, Hermes, or any other) in the AegisClaw envelope, not just
+  skills AegisClaw launches itself. Introduces the pluggable `AgentAdapter`
+  interface + `Registry`, a `Supervisor` that forces a filtering egress proxy
+  and scoped, ephemeral secret injection onto the agent and records the full
+  lifecycle to the hash-chained audit log, and a `Launcher` seam. Design doc:
+  `aegisclaw-harness-architecture.md`.
+- **`aegisclaw harness run` / `harness list`**: launch an agent in the envelope.
+  By default the agent runs as a host subprocess pointed at the egress proxy via
+  `HTTP(S)_PROXY`; `--image` runs it **inside a hardened sandbox container**
+  (read-only rootfs, all caps dropped, no-new-privileges, resource limits), with
+  `--runtime gvisor` for stronger isolation.
+- **`generic` agent adapter** (`internal/harness/adapters/generic`): runs any
+  agent that honours standard proxy/endpoint environment variables — the harness
+  is not limited to OpenClaw and Hermes.
+- **First-class OpenClaw and Hermes adapters** (`internal/harness/adapters/
+  {openclaw,hermes}`): each declares its scoped secrets, a default egress
+  allowlist for its endpoints (merged into the proxy allowlist by the
+  supervisor), and its ingress surface. OpenClaw declares its messaging channels
+  as ingress and reuses the existing `internal/openclaw` health probe; Hermes
+  declares its self-generated-skills directory and implements a new optional
+  `SandboxRequirer` interface so the supervisor warns when this code-executing
+  agent is launched on the host instead of inside the sandbox. Adapters also
+  contribute a default egress allowlist via the new `AgentAdapter.
+  DefaultEgressDomains` method.
+- **Detached sandbox execution** (`sandbox.DockerExecutor.Start` + `Process`):
+  long-lived containers with live log streaming and ctx-driven termination,
+  reusing the existing hardened container configuration (refactored into a shared
+  `hardenedConfigs` helper). Backs `internal/harness/sandboxlauncher`.
+- **MCP gateway** (`mcp.Gateway` + `mcp.StdioDownstream`): an inline Model
+  Context Protocol proxy between an agent and a real downstream MCP server. Every
+  `tools/call` is checked through a pipeline — rate limit → scope→policy
+  decision → persistent approval → argument guardrail scan → forward → response
+  guardrail scan → hash-chained audit (`audit/mcp.log`) — before it can reach the
+  downstream. Reuses `policy`, `guardrails`, `scope`, and the existing rate
+  limiter. CLI: `aegisclaw gateway mcp -- <server cmd…>`.
+- **MCP tool-description pinning** (`mcp.PinStore`): `tools/list` hash-pins each
+  tool's name, description, and input schema (trust-on-first-use). A tool whose
+  fingerprint changes after first approval is quarantined and its calls blocked
+  until an operator re-approves it via `aegisclaw gateway pins reset` — a defense
+  against tool-poisoning / rug-pull attacks.
+- **LLM proxy** (`internal/llmproxy`): an OpenAI/Anthropic-compatible reverse
+  proxy between an agent and its model provider. Scans prompts and responses with
+  the guardrails engine, scrubs known secrets from responses, enforces
+  per-session token / cost / request budgets, detects runaway self-prompting
+  loops (the same request repeated in a short window), and records every call
+  (model, token counts, cost, decision) to the audit log. Standalone via
+  `aegisclaw gateway llm --upstream …`, and wired into the harness model plane
+  via `aegisclaw harness run --llm-upstream …` (which points the agent's
+  `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` at the proxy). Closes the agentic-loop
+  & cost-guard roadmap item.
+
+- **Agent Control Plane dashboard view** (`GET /api/harness`): reports the four
+  enforcement planes (tools, model, network, host) with activity derived from the
+  audit and MCP logs (`harness.SummarizeAudit`), plus the registered adapters and
+  their declared risk surface. The web dashboard renders this as an "Agent
+  Control Plane" panel. A single source of truth for the built-in adapters now
+  lives in `internal/harness/adapters` (used by both the CLI and the server).
+
+### Notes
+
+- Secret values resolved for an agent are injected only into the process
+  environment for its lifetime; they are never written to disk or the audit log.
+- Egress is *forced through* the proxy; default-deny tightening of an empty
+  allowlist is tracked with the dedicated egress plane (see roadmap).
+
 ## [0.9.0] - 2026-05-20
 
 ### Added
