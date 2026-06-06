@@ -220,6 +220,33 @@ hardening that case study motivated both shipped in v0.9.0.
 - **Skill supply-chain security**: SBOM generation and image vulnerability
   scanning for skills, backed by a signature transparency log.
 
+### 🚧 Harness Control Plane — Governing Live Agents
+
+A structural initiative running alongside the threat-hardening work. Today
+AegisClaw's enforcement hangs off `agent.ExecuteSkill` — skills it launches
+itself — while real agents (OpenClaw, Hermes) run as independent processes whose
+tool calls, model calls, network, and file access AegisClaw never sees. This
+initiative reframes AegisClaw as an **inline agent control plane** that brokers
+those four action paths. Full design in
+[`aegisclaw-harness-architecture.md`](aegisclaw-harness-architecture.md).
+
+- [x] **Phase 1 — Harness scaffold + generic adapter**: `internal/harness`
+  (`AgentAdapter`, `Registry`, `Supervisor`, pluggable `Launcher`) with a
+  `generic` adapter and `aegisclaw harness run/list`. Forces a filtering egress
+  proxy and scoped, ephemeral secret injection onto the agent, recording the
+  whole lifecycle to the hash-chained audit log. Two launchers: host-subprocess
+  (default) and **in-sandbox** (`--image`, hardened container, `--runtime
+  gvisor`) backed by a new detached `DockerExecutor.Start`.
+- [ ] **Phase 2 — MCP gateway** *(next)*: convert `internal/mcp` from a server
+  exposing AegisClaw's own tools into an inline proxy between the agent and its
+  real MCP servers, with per-call policy/approval/audit and tool-description
+  hash-pinning (the tool-poisoning defense).
+- [ ] **Phase 3 — LLM proxy**: OpenAI/Anthropic-compatible reverse proxy doing
+  inline guardrails + redaction + token/cost/loop budgets.
+- [ ] **First-class OpenClaw & Hermes adapters**: police each agent's specific
+  risk surface (OpenClaw chat-channel ingress vs. Hermes self-generated skills).
+- [ ] **Dashboard + posture**: show the four live planes per agent.
+
 ### 🔭 v0.10.x — Compliance & Federation
 
 - **Compliance frameworks**: pre-built policy packs for SOC 2, HIPAA, and GDPR.

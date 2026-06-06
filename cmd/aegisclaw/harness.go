@@ -9,9 +9,17 @@ import (
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/harness"
 	"github.com/mackeh/AegisClaw/internal/harness/adapters/generic"
+	"github.com/mackeh/AegisClaw/internal/harness/sandboxlauncher"
 	"github.com/mackeh/AegisClaw/internal/secrets"
 	"github.com/spf13/cobra"
 )
+
+func defaultStr(v, fallback string) string {
+	if v == "" {
+		return fallback
+	}
+	return v
+}
 
 // harnessRegistry builds the adapter registry. Adapters are registered here (in
 // the CLI) so the dependency direction stays one-way: adapter packages import
@@ -33,11 +41,19 @@ injects scoped, ephemeral secrets, recording the lifecycle to the audit log.`,
 
 	var agentName string
 	var workDir string
+	var image string
+	var runtime string
 
 	runCmd := &cobra.Command{
 		Use:   "run -- [COMMAND...]",
 		Short: "Launch an agent process with egress filtering and scoped secrets enforced",
-		Args:  cobra.MinimumNArgs(1),
+		Long: `Launch an agent with AegisClaw's enforcement planes wired around it.
+
+By default the agent runs as a host subprocess pointed at a filtering egress
+proxy. Pass --image to run the agent INSIDE a hardened sandbox container
+(read-only rootfs, dropped capabilities, no-new-privileges, resource limits),
+optionally selecting a stronger runtime with --runtime gvisor.`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfgDir, err := config.DefaultConfigDir()
 			if err != nil {
@@ -70,9 +86,16 @@ injects scoped, ephemeral secrets, recording the lifecycle to the audit log.`,
 				Secrets:        secrets.NewManager(filepath.Join(cfgDir, "secrets")),
 				AllowedDomains: allowlist,
 				WorkDir:        workDir,
+				Image:          image,
 			}
 
-			fmt.Printf("🛡️  Launching agent %q inside the AegisClaw envelope...\n", adapter.Name())
+			mode := "host subprocess"
+			if image != "" {
+				sup.Launcher = sandboxlauncher.New(runtime)
+				mode = fmt.Sprintf("sandbox (image=%s, runtime=%s)", image, defaultStr(runtime, "docker"))
+			}
+
+			fmt.Printf("🛡️  Launching agent %q inside the AegisClaw envelope [%s]...\n", adapter.Name(), mode)
 			code, err := sup.Run(cmd.Context(), adapter, args, os.Stdout, os.Stderr)
 			if err != nil {
 				return err
@@ -86,6 +109,8 @@ injects scoped, ephemeral secrets, recording the lifecycle to the audit log.`,
 	}
 	runCmd.Flags().StringVar(&agentName, "agent", "generic", "agent adapter to use")
 	runCmd.Flags().StringVar(&workDir, "workdir", "", "working directory for the agent (default: current directory)")
+	runCmd.Flags().StringVar(&image, "image", "", "run the agent inside a sandbox container using this image")
+	runCmd.Flags().StringVar(&runtime, "runtime", "", "sandbox runtime when --image is set: docker, gvisor, kata, firecracker")
 	cmd.AddCommand(runCmd)
 
 	cmd.AddCommand(&cobra.Command{

@@ -29,6 +29,8 @@ type Supervisor struct {
 	Launcher Launcher
 	// WorkDir is the agent's working directory ("" inherits the cwd).
 	WorkDir string
+	// Image is the container image to run the agent in (sandbox launcher only).
+	Image string
 }
 
 // Run prepares the command via the adapter, wires the planes, launches the
@@ -103,6 +105,7 @@ func (s *Supervisor) Run(ctx context.Context, adapter AgentAdapter, userArgs []s
 		Wiring:          wiring,
 		Command:         command,
 		WorkDir:         s.WorkDir,
+		Image:           s.Image,
 		ResolvedSecrets: resolved,
 		Stdout:          stdout,
 		Stderr:          stderr,

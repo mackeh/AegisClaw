@@ -232,9 +232,9 @@ out of the gateway naturally.
 
 - **Sandbox-the-agent** (`internal/sandbox`, `internal/ebpf`): run the agent
   process itself inside gVisor/Firecracker with read-only rootfs, dropped caps,
-  scoped writable mounts, and eBPF syscall/file/network tracing. The hardening
-  already exists; today it wraps skills, not the agent. Broadest blast-radius
-  reduction, least protocol work.
+  scoped writable mounts, and eBPF syscall/file/network tracing. ✅ *Shipped via
+  `sandboxlauncher` + `DockerExecutor.Start`* (Phase 1). Remaining follow-ups:
+  scoped writable mounts and attaching eBPF tracing to the agent container.
 - **LLM proxy** (`internal/llmproxy`, new, small): an OpenAI/Anthropic-compatible
   reverse proxy that runs `guardrails.CheckInput`/`CheckOutput` + `redactor`
   inline and enforces **token/cost + loop budgets** (per tool call, per task
@@ -259,7 +259,10 @@ the `server` dashboard. Every plane calls into these.
 **New glue:**
 - `internal/harness` — the `AgentAdapter` interface, the `Registry`, and the
   **supervisor** that launches an agent with all four planes wired.
-- `internal/harness/adapters/{generic,openclaw,hermes}` — the three adapters.
+- `internal/harness/adapters/{generic,openclaw,hermes}` — the three adapters
+  (`generic` shipped; OpenClaw/Hermes pending).
+- `internal/harness/sandboxlauncher` — the sandbox-backed `Launcher` (keeps the
+  Docker dependency out of the core harness package).
 
 **Reconsider / de-emphasize:**
 - `internal/cluster` — half-finished gRPC stub (TODO at `cluster.go:131`, no
@@ -280,15 +283,21 @@ aegisclaw harness status                               # 4 planes per agent
 
 ## 8. Phasing
 
-1. **`internal/harness` + adapter interface + generic adapter.** ✅ *Scaffolded.*
+1. **`internal/harness` + adapter interface + generic adapter.** ✅ *Done.*
    Launch any agent with the egress proxy + scoped ephemeral secrets forced on,
    the whole lifecycle recorded to the hash-chained audit log. Shipped as
    `internal/harness` (`AgentAdapter`, `Registry`, `Supervisor`, `Launcher`) with
-   a `generic` adapter and an `aegisclaw harness run` CLI. The initial `Launcher`
-   is host-subprocess (`ProcessLauncher`); it enforces egress via `HTTP(S)_PROXY`
-   so even a host process is filtered. A sandbox-backed launcher that runs the
-   agent *inside* Docker/gVisor implements the same `Launcher` interface and is
-   the next increment of this phase.
+   a `generic` adapter and an `aegisclaw harness run` CLI. Two launchers
+   implement the `Launcher` interface:
+   - `ProcessLauncher` (default) runs the agent as a **host subprocess** pointed
+     at the egress proxy via `HTTP(S)_PROXY`, so even a host process is filtered.
+   - `sandboxlauncher.Launcher` (`--image`) runs the agent **inside a hardened
+     sandbox container** (read-only rootfs, all caps dropped, `no-new-privileges`,
+     resource limits; `--runtime gvisor` for stronger isolation). The egress
+     proxy address is rewritten to `host.docker.internal` and the host
+     environment is not inherited. This completes the "agent runs inside the
+     sandbox" goal and reuses the existing `internal/sandbox` hardening via a new
+     detached `DockerExecutor.Start` entry point.
 2. **MCP gateway** (Section 5). Per-call policy/approval/audit + description
    pinning. Closes two unshipped roadmap items.
 3. **LLM proxy.** Inline guardrails + redaction + token/cost/loop budgets. Closes

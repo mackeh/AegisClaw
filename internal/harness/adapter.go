@@ -61,6 +61,7 @@ type HarnessEnv struct {
 	Wiring          Wiring
 	Command         []string          // agent process argv
 	WorkDir         string            // working directory ("" inherits cwd)
+	Image           string            // container image (sandbox launcher only)
 	ResolvedSecrets map[string]string // EnvVar -> value (policy-permitted only)
 	Stdout          io.Writer
 	Stderr          io.Writer

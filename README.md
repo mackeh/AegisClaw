@@ -274,6 +274,35 @@ Troubleshooting
 - Verify secrets are present: `./aegisclaw secrets list`
 - Inspect audit logs for denied actions: `./aegisclaw logs`
 
+## 🧭 Agent Harness (experimental)
+
+Beyond running individual skills, AegisClaw can wrap a **whole running agent**
+(OpenClaw, Hermes, or any other) in its security envelope. The `harness` command
+launches the agent with AegisClaw's enforcement planes wired around it — today,
+a forced filtering egress proxy and scoped, ephemeral secret injection, with the
+full lifecycle recorded to the tamper-evident audit log.
+
+```bash
+# List available agent adapters
+./aegisclaw harness list
+
+# Run an agent as a host subprocess, pointed at the filtering egress proxy
+./aegisclaw harness run --agent generic -- my-agent serve
+
+# Run the agent INSIDE a hardened sandbox container (read-only rootfs, all caps
+# dropped, no-new-privileges, resource limits); use a stronger runtime if available
+./aegisclaw harness run --agent generic --image my-agent:latest --runtime gvisor -- serve
+```
+
+The agent inherits `HTTP(S)_PROXY` pointing at AegisClaw's egress proxy, so its
+outbound traffic is filtered against `network.allowlist`. Secrets declared by an
+adapter are resolved from the encrypted store and injected as environment
+variables for the process lifetime only — never written to disk or the audit
+log. The adapter model is pluggable (`generic` today; first-class OpenClaw and
+Hermes adapters are in progress), so the harness is **not limited to** any one
+agent. See [`aegisclaw-harness-architecture.md`](aegisclaw-harness-architecture.md)
+for the full design and roadmap.
+
 ## 🗺️ Roadmap
 
 ### Completed

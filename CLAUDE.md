@@ -40,7 +40,7 @@ When a skill runs, the path through the codebase is:
 2. **Agent** (`internal/agent/`) — Orchestrator: validates command, evaluates policy, handles approval, injects secrets, runs sandbox, streams output through redactor, scans skill output for indirect prompt injection (`guardrails.go`, configurable `guardrails.mode`), logs to audit
 3. **Policy** (`internal/policy/`) — OPA/Rego engine. Evaluates scope requests → returns `Allow`, `Deny`, or `RequireApproval`
 4. **Approval** (`internal/approval/`) — Bubbletea TUI for interactive approve/deny/always-approve prompts
-5. **Sandbox** (`internal/sandbox/`) — Docker executor with hardened defaults (all caps dropped, read-only rootfs, 512MB mem, 1 CPU, 100 pids, no-new-privileges). Pluggable runtime: Docker, gVisor, Kata, Firecracker. `ComposeExecutor` for multi-container skills
+5. **Sandbox** (`internal/sandbox/`) — Docker executor with hardened defaults (all caps dropped, read-only rootfs, 512MB mem, 1 CPU, 100 pids, no-new-privileges). Pluggable runtime: Docker, gVisor, Kata, Firecracker. `ComposeExecutor` for multi-container skills. `DockerExecutor.Run` is one-shot (skills); `DockerExecutor.Start` returns a detached `Process` handle for long-lived agents (used by the harness)
 6. **Proxy** (`internal/proxy/`) — HTTP/CONNECT egress proxy enforcing domain allowlists
 7. **Redactor** (`internal/security/redactor/`) — Wraps io.Writer to scrub secrets from output in real-time
 8. **Audit** (`internal/audit/`) — Append-only JSON log with SHA256 hash chain. `Verify()` checks integrity
@@ -57,6 +57,7 @@ When a skill runs, the path through the codebase is:
 - **OpenClaw** (`internal/openclaw/`) — Adapter health model used by CLI doctor and `/api/openclaw/health` (status, latency, readiness, secret wiring)
 - **Posture** (`internal/posture/`) — Security posture scoring (A–F grade) across sandboxing, secrets, policy, audit, network
 - **Simulate** (`internal/simulate/`) — Dry-run skill analysis: scope evaluation, risk assessment, policy check without execution
+- **Harness** (`internal/harness/`) — Agent control plane: wraps a *whole running agent* (OpenClaw/Hermes/generic), not just skills. `AgentAdapter` interface + `Registry` (pluggable agents), `Supervisor` (forces an egress proxy and scoped, ephemeral secret injection onto the agent and audits the lifecycle), and a `Launcher` seam with `ProcessLauncher` (host subprocess) and `sandboxlauncher` (runs the agent inside the hardened sandbox). CLI: `aegisclaw harness run/list`. Design doc: `aegisclaw-harness-architecture.md`
 - **Guardrails** (`internal/guardrails/`) — LLM prompt safety: evasion-resistant direct/indirect prompt-injection detection, jailbreak prevention, secret leak sanitization. `normalize.go` defeats obfuscation (Unicode homoglyphs, zero-width chars, base64/hex encoding); `CheckInput`/`CheckOutput` cover prompts/responses; `CheckData` (`indirect.go`) scans untrusted content the agent ingests
 - **X-Ray** (`internal/xray/`) — Deep runtime inspection of Docker containers: CPU, memory, network I/O, process list
 - **Marketplace** (`internal/marketplace/`) — Skill marketplace with ratings, security badges, search, and local index caching
@@ -91,4 +92,4 @@ Skills load from both `~/.aegisclaw/skills/` and a local `./skills/` directory. 
 - CLI output uses emoji prefixes for visual feedback
 - Policy files are OPA Rego with package `aegisclaw.policy`
 - Version is hardcoded in `cmd/aegisclaw/main.go` (`var version`) and `internal/mcp/server.go`
-- Test coverage spans 25 packages; only `approval` and `server/ui` lack tests (approval is TUI-interactive, ui is an embed directive). The `agent` package tests cover the non-Docker logic (guardrail mode resolution, output scanning); full skill execution still requires Docker
+- Test coverage spans 28 packages (incl. the three `harness` packages); only `approval` and `server/ui` lack tests (approval is TUI-interactive, ui is an embed directive). The `agent` package tests cover the non-Docker logic (guardrail mode resolution, output scanning); full skill execution still requires Docker

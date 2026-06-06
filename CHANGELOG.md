@@ -4,6 +4,37 @@ All notable changes to AegisClaw are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Agent harness control plane** (`internal/harness/`): wraps a *whole running
+  agent* (OpenClaw, Hermes, or any other) in the AegisClaw envelope, not just
+  skills AegisClaw launches itself. Introduces the pluggable `AgentAdapter`
+  interface + `Registry`, a `Supervisor` that forces a filtering egress proxy
+  and scoped, ephemeral secret injection onto the agent and records the full
+  lifecycle to the hash-chained audit log, and a `Launcher` seam. Design doc:
+  `aegisclaw-harness-architecture.md`.
+- **`aegisclaw harness run` / `harness list`**: launch an agent in the envelope.
+  By default the agent runs as a host subprocess pointed at the egress proxy via
+  `HTTP(S)_PROXY`; `--image` runs it **inside a hardened sandbox container**
+  (read-only rootfs, all caps dropped, no-new-privileges, resource limits), with
+  `--runtime gvisor` for stronger isolation.
+- **`generic` agent adapter** (`internal/harness/adapters/generic`): runs any
+  agent that honours standard proxy/endpoint environment variables — the harness
+  is not limited to OpenClaw and Hermes.
+- **Detached sandbox execution** (`sandbox.DockerExecutor.Start` + `Process`):
+  long-lived containers with live log streaming and ctx-driven termination,
+  reusing the existing hardened container configuration (refactored into a shared
+  `hardenedConfigs` helper). Backs `internal/harness/sandboxlauncher`.
+
+### Notes
+
+- Secret values resolved for an agent are injected only into the process
+  environment for its lifetime; they are never written to disk or the audit log.
+- Egress is *forced through* the proxy; default-deny tightening of an empty
+  allowlist is tracked with the dedicated egress plane (see roadmap).
+
 ## [0.9.0] - 2026-05-20
 
 ### Added
