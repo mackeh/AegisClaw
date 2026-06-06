@@ -328,6 +328,30 @@ blocks its calls until an operator re-approves it. Because the gateway runs
 non-interactively, a `require_approval` policy decision is honoured only if an
 `always` grant already exists — otherwise the call is denied by default.
 
+### LLM Proxy — governing model calls
+
+The `gateway llm` command puts AegisClaw inline in front of an
+OpenAI/Anthropic-compatible provider. Point your agent's base URL at it and
+every model call is governed.
+
+```bash
+# Proxy OpenAI with a token budget and loop detection
+./aegisclaw gateway llm --upstream https://api.openai.com \
+  --mode block --max-tokens 500000 --loop-threshold 5
+# then: export OPENAI_BASE_URL=http://127.0.0.1:<printed-port>/v1
+```
+
+It scans prompts and responses with the guardrails engine, scrubs known secrets
+out of responses, enforces **per-session token / cost / request budgets**,
+detects **runaway self-prompting loops** (the same request repeated in a short
+window), and records every call — model, token counts, cost, decision — to the
+audit log. The same proxy is wired into the harness automatically:
+
+```bash
+./aegisclaw harness run --llm-upstream https://api.openai.com \
+  --max-cost 5.00 --loop-threshold 5 -- my-agent serve
+```
+
 ## 🗺️ Roadmap
 
 ### Completed
@@ -398,8 +422,8 @@ non-interactively, a `require_approval` policy decision is honoured only if an
   input validation on tool names and query bounds.
 - [x] **Tool-Poisoning Defense**: The MCP gateway hash-pins tool descriptions
   and schemas and quarantines any that change after first approval.
-- [ ] **Agentic Loop & Cost Guards**: Detect runaway agent loops; enforce
-  per-skill and per-session token/cost budgets.
+- [x] **Agentic Loop & Cost Guards**: The LLM proxy detects runaway agent loops
+  and enforces per-session token/cost/request budgets.
 - [ ] **Skill Supply-Chain Security**: SBOM generation and image vulnerability
   scanning for skills, with a signature transparency log.
 

@@ -246,9 +246,9 @@ func Verify(path string) (bool, error) {
 
 		// Verify hash (recompute)
 		// Note: computeHash is a method on Logger, but we can't use it easily here without an instance.
-		// Detailed verification would need to replicate the hashing logic. 
+		// Detailed verification would need to replicate the hashing logic.
 		// For MVP, checking the chain links is a good first step.
-		
+
 		prevHash = entry.Hash
 	}
 

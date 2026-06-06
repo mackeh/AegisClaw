@@ -39,6 +39,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
   fingerprint changes after first approval is quarantined and its calls blocked
   until an operator re-approves it via `aegisclaw gateway pins reset` — a defense
   against tool-poisoning / rug-pull attacks.
+- **LLM proxy** (`internal/llmproxy`): an OpenAI/Anthropic-compatible reverse
+  proxy between an agent and its model provider. Scans prompts and responses with
+  the guardrails engine, scrubs known secrets from responses, enforces
+  per-session token / cost / request budgets, detects runaway self-prompting
+  loops (the same request repeated in a short window), and records every call
+  (model, token counts, cost, decision) to the audit log. Standalone via
+  `aegisclaw gateway llm --upstream …`, and wired into the harness model plane
+  via `aegisclaw harness run --llm-upstream …` (which points the agent's
+  `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` at the proxy). Closes the agentic-loop
+  & cost-guard roadmap item.
 
 ### Notes
 

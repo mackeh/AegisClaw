@@ -12,11 +12,11 @@ import (
 
 // Decision represents a persistent approval
 type Decision struct {
-	Hash        string    `json:"hash"` // Hash of scope+constraints
-	Decision    string    `json:"decision"` // "always"
-	Scope       string    `json:"scope"`
-	GrantedAt   time.Time `json:"granted_at"`
-	ExpiresAt   time.Time `json:"expires_at"`
+	Hash      string    `json:"hash"`     // Hash of scope+constraints
+	Decision  string    `json:"decision"` // "always"
+	Scope     string    `json:"scope"`
+	GrantedAt time.Time `json:"granted_at"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 type Store struct {
@@ -30,20 +30,20 @@ func NewStore() (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	path := filepath.Join(home, ".aegisclaw", "approvals.json")
 	store := &Store{
 		path:      path,
 		decisions: make(map[string]Decision),
 	}
-	
+
 	if err := store.load(); err != nil {
 		// Verify if file exists, if not it's fine
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
 	}
-	
+
 	return store, nil
 }
 
@@ -65,14 +65,14 @@ func (s *Store) Grant(scopeStr string, decisionStr string) error {
 	defer s.mu.Unlock()
 
 	hash := hashScope(scopeStr)
-	
+
 	d := Decision{
 		Hash:      hash,
 		Decision:  decisionStr,
 		Scope:     scopeStr,
 		GrantedAt: time.Now(),
 	}
-	
+
 	// "Always" grants expire in 30 days by default
 	if decisionStr == "always" {
 		d.ExpiresAt = time.Now().Add(30 * 24 * time.Hour)

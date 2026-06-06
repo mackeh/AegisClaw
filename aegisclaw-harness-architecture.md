@@ -235,11 +235,13 @@ out of the gateway naturally.
   scoped writable mounts, and eBPF syscall/file/network tracing. ✅ *Shipped via
   `sandboxlauncher` + `DockerExecutor.Start`* (Phase 1). Remaining follow-ups:
   scoped writable mounts and attaching eBPF tracing to the agent container.
-- **LLM proxy** (`internal/llmproxy`, new, small): an OpenAI/Anthropic-compatible
-  reverse proxy that runs `guardrails.CheckInput`/`CheckOutput` + `redactor`
-  inline and enforces **token/cost + loop budgets** (per tool call, per task
-  loop, per session — the three-level timeout model). Closes the unshipped
-  "agentic loop & cost guards" item; the detection logic already exists.
+- **LLM proxy** (`internal/llmproxy`): ✅ *Shipped.* An OpenAI/Anthropic-
+  compatible reverse proxy that runs `guardrails.CheckInput`/`CheckOutput` +
+  `redactor` inline and enforces **token/cost + loop budgets**. Wired into the
+  `Supervisor` model plane and available as `aegisclaw gateway llm`. Closes the
+  "agentic loop & cost guards" item. Follow-up: precise tokenizer-based counts
+  (currently provider-reported usage with a char/4 estimate fallback) and
+  response-body guardrails on streamed (SSE) responses.
 - **Egress proxy** (`internal/proxy`): exists but is optional/per-skill. Make it
   the **mandatory, content-inspecting** egress broker for the agent: DLP on
   requests (credential leak), injection scan on responses, SSRF blocking,
@@ -254,7 +256,7 @@ the `server` dashboard. Every plane calls into these.
 **Refactor into inline brokers:**
 - `internal/mcp` — server → **gateway/proxy** (Section 5).
 - `internal/proxy` — optional → **mandatory, inspecting** egress broker.
-- **new** `internal/llmproxy` — inline model broker.
+- ✅ `internal/llmproxy` — inline model broker (shipped).
 
 **New glue:**
 - `internal/harness` — the `AgentAdapter` interface, the `Registry`, and the
@@ -307,8 +309,16 @@ aegisclaw harness status                               # 4 planes per agent
    resolves against persisted "always" grants and otherwise default-denies.
    Closes two unshipped roadmap items (tool-poisoning defense; untrusted
    tool-call surface).
-3. **LLM proxy.** Inline guardrails + redaction + token/cost/loop budgets. Closes
-   the loop-guard item.
+3. **LLM proxy.** ✅ *Done.* Inline guardrails + redaction + token/cost/loop
+   budgets. Shipped as `internal/llmproxy` (`Proxy`): an OpenAI/Anthropic-
+   compatible reverse proxy that scans prompts (`CheckInput`) and responses
+   (`CheckOutput`), scrubs secrets from responses (`redactor`), enforces
+   per-session token/cost/request budgets (`Budget`) and runaway-loop detection
+   (`loopGuard`), and audits every call. Wired into the harness `Supervisor`
+   (the model plane) — set `--llm-upstream` on `harness run` and the agent's
+   `OPENAI_BASE_URL`/`ANTHROPIC_BASE_URL` are pointed at it — and exposed
+   standalone as `aegisclaw gateway llm`. Closes the agentic-loop/cost-guard
+   item.
 4. **First-class OpenClaw & Hermes adapters** policing each one's specific risk
    surface (channels vs. self-generated skills).
 5. **Dashboard + posture** updated to show the four live planes per agent instead

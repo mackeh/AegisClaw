@@ -39,8 +39,8 @@ var (
 )
 
 type Model struct {
-	Request scope.ScopeRequest
-	Choice  string
+	Request  scope.ScopeRequest
+	Choice   string
 	Quitting bool
 }
 
@@ -90,16 +90,16 @@ func (m Model) View() string {
 	// Header
 	maxRisk := m.Request.MaxRisk()
 	riskBadge := renderRiskBadge(maxRisk)
-	
+
 	s.WriteString(fmt.Sprintf("\n%s %s\n\n", titleStyle.Render(" PERMISSION REQUEST "), riskBadge))
-	
+
 	s.WriteString(fmt.Sprintf("  %s is requesting access:\n\n", lipgloss.NewStyle().Bold(true).Render(m.Request.RequestedBy)))
 
 	// Scopes
 	for _, sc := range m.Request.Scopes {
 		s.WriteString(fmt.Sprintf("  • %s %s\n", renderRiskEmoji(sc.RiskLevel), sc.String()))
 	}
-	
+
 	s.WriteString(fmt.Sprintf("\n  %s\n", subtleStyle.Render(m.Request.Reason)))
 
 	// Controls

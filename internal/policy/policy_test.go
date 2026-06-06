@@ -42,7 +42,7 @@ decision = "require_approval" if {
 		{"Allowed path 1", "files.read:/tmp/file.txt", Allow},
 		{"Allowed path 2", "files.read:/home/user/safe/doc.md", Allow},
 		{"Denied path", "files.read:/etc/passwd", RequireApproval}, // Fallback
-		{"No resource (fail safe)", "files.read", RequireApproval}, 
+		{"No resource (fail safe)", "files.read", RequireApproval},
 		{"Always approval", "shell.exec", RequireApproval},
 		{"Unknown scope", "unknown", RequireApproval},
 	}

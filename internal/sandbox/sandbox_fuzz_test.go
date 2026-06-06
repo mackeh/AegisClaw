@@ -20,7 +20,7 @@ func FuzzConfigValidation(f *testing.F) {
 		if len(cfg.Command) == 0 {
 			return
 		}
-		
+
 		if cfg.Image == "" {
 			return
 		}

@@ -17,8 +17,8 @@ const (
 
 // AuthConfig holds API key authentication configuration.
 type AuthConfig struct {
-	Enabled bool      `yaml:"enabled"`
-	Keys    []APIKey  `yaml:"keys"`
+	Enabled bool     `yaml:"enabled"`
+	Keys    []APIKey `yaml:"keys"`
 }
 
 // APIKey maps a token to a role.

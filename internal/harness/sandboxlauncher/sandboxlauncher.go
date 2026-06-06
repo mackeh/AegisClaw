@@ -65,7 +65,9 @@ func containerEnv(env harness.HarnessEnv) []string {
 		)
 	}
 	for k, v := range env.Wiring.Env {
-		out = append(out, k+"="+v)
+		// Rewrite any loopback URLs (e.g. the LLM-proxy base URL) so the
+		// container reaches the host service via the Docker gateway.
+		out = append(out, k+"="+containerProxyURL(v))
 	}
 	for k, v := range env.ResolvedSecrets {
 		out = append(out, k+"="+v)

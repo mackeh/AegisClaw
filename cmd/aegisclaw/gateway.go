@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/mackeh/AegisClaw/internal/approval"
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/config"
+	"github.com/mackeh/AegisClaw/internal/llmproxy"
 	"github.com/mackeh/AegisClaw/internal/mcp"
 	"github.com/mackeh/AegisClaw/internal/policy"
 	"github.com/spf13/cobra"
@@ -76,6 +79,66 @@ Example:
 	cmd.AddCommand(mcpCmd)
 
 	cmd.AddCommand(pinsCmd())
+	cmd.AddCommand(llmGatewayCmd())
+	return cmd
+}
+
+func llmGatewayCmd() *cobra.Command {
+	var (
+		upstream      string
+		mode          string
+		maxTokens     int
+		maxCost       float64
+		maxRequests   int
+		loopThreshold int
+	)
+	cmd := &cobra.Command{
+		Use:   "llm",
+		Short: "Proxy an LLM provider, enforcing guardrails, secret redaction, and token/cost/loop budgets",
+		Long: `Run AegisClaw as an inline LLM proxy in front of an OpenAI/Anthropic-compatible
+provider. Point your agent's base URL at the address printed on startup; every
+prompt and response is scanned by the guardrails engine, secrets are scrubbed
+from responses, per-session token/cost/request budgets are enforced, runaway
+loops are detected, and each call is recorded to the audit log.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfgDir, err := config.DefaultConfigDir()
+			if err != nil {
+				return err
+			}
+			logger, lerr := audit.NewLogger(filepath.Join(cfgDir, "audit", "audit.log"))
+			if lerr != nil {
+				return fmt.Errorf("failed to open audit log: %w", lerr)
+			}
+			defer logger.Close()
+
+			p := llmproxy.New(upstream, llmproxy.Options{
+				Mode:          mode,
+				Logger:        logger,
+				Budget:        &llmproxy.Budget{MaxTokens: maxTokens, MaxCostUSD: maxCost, MaxRequests: maxRequests},
+				LoopThreshold: loopThreshold,
+			})
+			url, err := p.Start()
+			if err != nil {
+				return err
+			}
+			defer p.Stop()
+
+			fmt.Printf("🧠 LLM proxy listening on %s → %s (mode=%s)\n", url, upstream, mode)
+			fmt.Printf("   Point your agent at it, e.g. OPENAI_BASE_URL=%s/v1  or  ANTHROPIC_BASE_URL=%s\n", url, url)
+
+			ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
+			defer stop()
+			<-ctx.Done()
+			fmt.Println("\n👋 LLM proxy shutting down.")
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&upstream, "upstream", "https://api.openai.com", "provider base URL (scheme://host)")
+	cmd.Flags().StringVar(&mode, "mode", "warn", "guardrail mode: off, warn, or block")
+	cmd.Flags().IntVar(&maxTokens, "max-tokens", 0, "per-session token budget (0 = unlimited)")
+	cmd.Flags().Float64Var(&maxCost, "max-cost", 0, "per-session cost budget in USD (0 = unlimited)")
+	cmd.Flags().IntVar(&maxRequests, "max-requests", 0, "per-session request budget (0 = unlimited)")
+	cmd.Flags().IntVar(&loopThreshold, "loop-threshold", 0, "block after N identical requests in 60s (0 = off)")
 	return cmd
 }
 

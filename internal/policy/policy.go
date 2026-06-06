@@ -73,7 +73,7 @@ func LoadDefaultPolicy(ctx context.Context) (*Engine, error) {
 	if _, err := os.Stat(path); err == nil {
 		return LoadPolicy(ctx, path)
 	}
-	
+
 	// Fallback to a safe default if file not found (or could embed default policy)
 	defaultPolicy := `
 package aegisclaw.policy
@@ -114,14 +114,14 @@ func (e *Engine) Evaluate(ctx context.Context, s scope.Scope) (Decision, error) 
 // EvaluateRequest evaluates all scopes in a request
 func (e *Engine) EvaluateRequest(ctx context.Context, req scope.ScopeRequest) (Decision, []scope.Scope, error) {
 	requiresApproval := []scope.Scope{}
-	
+
 	for _, s := range req.Scopes {
 		decision, err := e.Evaluate(ctx, s)
 		if err != nil {
 			// Fail secure on error
 			return RequireApproval, []scope.Scope{s}, err
 		}
-		
+
 		switch decision {
 		case Deny:
 			return Deny, []scope.Scope{s}, nil

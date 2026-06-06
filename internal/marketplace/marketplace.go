@@ -16,9 +16,9 @@ import (
 type SecurityBadge string
 
 const (
-	BadgeVerified   SecurityBadge = "verified"   // Signed + reviewed
-	BadgeSigned     SecurityBadge = "signed"     // Has valid signature
-	BadgeCommunity  SecurityBadge = "community"  // No verification
+	BadgeVerified  SecurityBadge = "verified"  // Signed + reviewed
+	BadgeSigned    SecurityBadge = "signed"    // Has valid signature
+	BadgeCommunity SecurityBadge = "community" // No verification
 )
 
 // SkillEntry is a marketplace listing for a skill.
@@ -28,7 +28,7 @@ type SkillEntry struct {
 	Description string        `json:"description"`
 	Author      string        `json:"author"`
 	Badge       SecurityBadge `json:"badge"`
-	Rating      float64       `json:"rating"`       // 0.0 – 5.0
+	Rating      float64       `json:"rating"` // 0.0 – 5.0
 	Downloads   int           `json:"downloads"`
 	Tags        []string      `json:"tags,omitempty"`
 	ManifestURL string        `json:"manifest_url"`

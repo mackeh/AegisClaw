@@ -24,14 +24,14 @@ const (
 
 // NodeInfo describes a single AegisClaw node in the cluster.
 type NodeInfo struct {
-	ID        string    `json:"id"`
-	Address   string    `json:"address"`
-	Role      NodeRole  `json:"role"`
-	Version   string    `json:"version"`
-	Status    string    `json:"status"` // online, offline, degraded
-	LastSeen  time.Time `json:"last_seen"`
-	Skills    int       `json:"skills"`    // number of installed skills
-	Uptime    string    `json:"uptime"`
+	ID       string    `json:"id"`
+	Address  string    `json:"address"`
+	Role     NodeRole  `json:"role"`
+	Version  string    `json:"version"`
+	Status   string    `json:"status"` // online, offline, degraded
+	LastSeen time.Time `json:"last_seen"`
+	Skills   int       `json:"skills"` // number of installed skills
+	Uptime   string    `json:"uptime"`
 }
 
 // AuditEvent is an audit entry forwarded from a follower to the leader.
@@ -45,9 +45,9 @@ type AuditEvent struct {
 
 // PolicyUpdate is a policy change pushed from leader to followers.
 type PolicyUpdate struct {
-	PolicyID  string `json:"policy_id"`
-	Content   []byte `json:"content"`
-	Hash      string `json:"hash"`
+	PolicyID  string    `json:"policy_id"`
+	Content   []byte    `json:"content"`
+	Hash      string    `json:"hash"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 

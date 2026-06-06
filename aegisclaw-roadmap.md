@@ -216,8 +216,9 @@ hardening that case study motivated both shipped in v0.9.0.
 - [x] **Tool-poisoning defense**: the MCP gateway hash-pins tool descriptions
   and schemas, quarantining any tool that changes after first approval until an
   operator re-approves it (`mcp.PinStore`; see Harness Control Plane Phase 2).
-- **Agentic loop & cost guards**: detect self-prompting loops; enforce per-skill
-  and per-session token/cost budgets. *(coming with harness Phase 3 — LLM proxy.)*
+- [x] **Agentic loop & cost guards**: the LLM proxy detects runaway
+  self-prompting loops and enforces per-session token/cost/request budgets
+  (`internal/llmproxy`; see Harness Control Plane Phase 3).
 - **Skill supply-chain security**: SBOM generation and image vulnerability
   scanning for skills, backed by a signature transparency log.
 
@@ -247,10 +248,16 @@ those four action paths. Full design in
   (tool-poisoning / rug-pull defense). CLI: `aegisclaw gateway mcp` and
   `gateway pins list/reset`. Closes the unshipped tool-poisoning-defense and
   untrusted-tool-call-surface items.
-- [ ] **Phase 3 — LLM proxy** *(next)*: OpenAI/Anthropic-compatible reverse
-  proxy doing inline guardrails + redaction + token/cost/loop budgets.
-- [ ] **First-class OpenClaw & Hermes adapters**: police each agent's specific
-  risk surface (OpenClaw chat-channel ingress vs. Hermes self-generated skills).
+- [x] **Phase 3 — LLM proxy**: `llmproxy.Proxy` is an OpenAI/Anthropic-
+  compatible reverse proxy that scans prompts and responses with the guardrails
+  engine, scrubs secrets from responses, enforces per-session token/cost/request
+  budgets, detects runaway self-prompting loops, and audits every call. Wired
+  into the harness `Supervisor` (model plane; `harness run --llm-upstream`) and
+  available standalone as `aegisclaw gateway llm`. Closes the agentic-loop &
+  cost-guard item.
+- [ ] **First-class OpenClaw & Hermes adapters** *(next)*: police each agent's
+  specific risk surface (OpenClaw chat-channel ingress vs. Hermes self-generated
+  skills).
 - [ ] **Dashboard + posture**: show the four live planes per agent.
 
 ### 🔭 v0.10.x — Compliance & Federation

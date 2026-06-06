@@ -68,13 +68,13 @@ func (w *RedactingWriter) Write(p []byte) (n int, err error) {
 	// Simple approach: convert to string, redact, write.
 	// Note: This may split multi-byte characters or secrets across chunk boundaries if not careful.
 	// For a robust implementation, we'd need a buffer, but for MVP this catches most "cat secrets.txt" cases.
-	
+
 	s := string(p)
 	redacted := w.redactor.Redact(s)
-	
+
 	// If redaction happened, the length changed, which breaks the io.Writer contract if we return the new length.
 	// We must return len(p) to satisfy the caller, even if we wrote fewer/more bytes underlying.
-	
+
 	_, err = w.writer.Write([]byte(redacted))
 	return len(p), err
 }

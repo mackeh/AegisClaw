@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/mackeh/AegisClaw/internal/audit"
+	"github.com/mackeh/AegisClaw/internal/llmproxy"
 	"github.com/mackeh/AegisClaw/internal/proxy"
 	"github.com/mackeh/AegisClaw/internal/secrets"
 )
@@ -31,6 +32,17 @@ type Supervisor struct {
 	WorkDir string
 	// Image is the container image to run the agent in (sandbox launcher only).
 	Image string
+
+	// LLMUpstream, when set, starts the model-plane LLM proxy in front of this
+	// provider base URL (scheme://host) and points the agent's OPENAI_BASE_URL /
+	// ANTHROPIC_BASE_URL at it. The proxy applies guardrails, secret redaction,
+	// and the budgets below.
+	LLMUpstream      string
+	LLMMode          string  // guardrail mode: off | warn | block (default warn)
+	LLMMaxTokens     int     // per-session token budget (0 = unlimited)
+	LLMMaxCostUSD    float64 // per-session cost budget (0 = unlimited)
+	LLMMaxRequests   int     // per-session request budget (0 = unlimited)
+	LLMLoopThreshold int     // block after N identical requests in 60s (0 = off)
 }
 
 // Run prepares the command via the adapter, wires the planes, launches the
@@ -97,6 +109,36 @@ func (s *Supervisor) Run(ctx context.Context, adapter AgentAdapter, userArgs []s
 	for _, src := range adapter.IngressSources() {
 		s.audit("harness.ingress.register", "observed", actor, map[string]any{
 			"source": src.Name, "kind": src.Kind,
+		})
+	}
+
+	// --- Model plane: forced LLM proxy ----------------------------------------
+	if s.LLMUpstream != "" {
+		secretValues := make([]string, 0, len(resolved))
+		for _, v := range resolved {
+			secretValues = append(secretValues, v)
+		}
+		lp := llmproxy.New(s.LLMUpstream, llmproxy.Options{
+			Mode:          s.LLMMode,
+			Secrets:       secretValues,
+			Logger:        s.Logger,
+			Budget:        &llmproxy.Budget{MaxTokens: s.LLMMaxTokens, MaxCostUSD: s.LLMMaxCostUSD, MaxRequests: s.LLMMaxRequests},
+			LoopThreshold: s.LLMLoopThreshold,
+		})
+		llmURL, lerr := lp.Start()
+		if lerr != nil {
+			return -1, fmt.Errorf("failed to start LLM proxy: %w", lerr)
+		}
+		defer func() { _ = lp.Stop() }()
+
+		if wiring.Env == nil {
+			wiring.Env = map[string]string{}
+		}
+		wiring.LLMBaseURL = llmURL
+		wiring.Env["OPENAI_BASE_URL"] = llmURL + "/v1"
+		wiring.Env["ANTHROPIC_BASE_URL"] = llmURL
+		s.audit("harness.plane.model", "allow", actor, map[string]any{
+			"plane": string(PlaneModel), "proxy": llmURL, "upstream": s.LLMUpstream,
 		})
 	}
 

@@ -15,17 +15,17 @@ import (
 
 // Report holds the results of a skill simulation.
 type Report struct {
-	SkillName     string          `json:"skill_name"`
-	Version       string          `json:"version"`
-	Image         string          `json:"image"`
-	Platform      string          `json:"platform"`
-	Commands      []string        `json:"commands"`
-	Scopes        []ScopeAnalysis `json:"scopes"`
-	NetworkAccess []string        `json:"network_access"`
-	FileAccess    []string        `json:"file_access"`
-	RiskLevel     string          `json:"risk_level"` // low, medium, high, critical
-	PolicyDecision string         `json:"policy_decision"`
-	Warnings      []string        `json:"warnings,omitempty"`
+	SkillName      string          `json:"skill_name"`
+	Version        string          `json:"version"`
+	Image          string          `json:"image"`
+	Platform       string          `json:"platform"`
+	Commands       []string        `json:"commands"`
+	Scopes         []ScopeAnalysis `json:"scopes"`
+	NetworkAccess  []string        `json:"network_access"`
+	FileAccess     []string        `json:"file_access"`
+	RiskLevel      string          `json:"risk_level"` // low, medium, high, critical
+	PolicyDecision string          `json:"policy_decision"`
+	Warnings       []string        `json:"warnings,omitempty"`
 }
 
 // ScopeAnalysis describes a single scope declaration.

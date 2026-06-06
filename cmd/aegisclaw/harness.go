@@ -43,6 +43,12 @@ injects scoped, ephemeral secrets, recording the lifecycle to the audit log.`,
 	var workDir string
 	var image string
 	var runtime string
+	var llmUpstream string
+	var llmMode string
+	var maxTokens int
+	var maxCost float64
+	var maxRequests int
+	var loopThreshold int
 
 	runCmd := &cobra.Command{
 		Use:   "run -- [COMMAND...]",
@@ -87,6 +93,13 @@ optionally selecting a stronger runtime with --runtime gvisor.`,
 				AllowedDomains: allowlist,
 				WorkDir:        workDir,
 				Image:          image,
+
+				LLMUpstream:      llmUpstream,
+				LLMMode:          llmMode,
+				LLMMaxTokens:     maxTokens,
+				LLMMaxCostUSD:    maxCost,
+				LLMMaxRequests:   maxRequests,
+				LLMLoopThreshold: loopThreshold,
 			}
 
 			mode := "host subprocess"
@@ -111,6 +124,12 @@ optionally selecting a stronger runtime with --runtime gvisor.`,
 	runCmd.Flags().StringVar(&workDir, "workdir", "", "working directory for the agent (default: current directory)")
 	runCmd.Flags().StringVar(&image, "image", "", "run the agent inside a sandbox container using this image")
 	runCmd.Flags().StringVar(&runtime, "runtime", "", "sandbox runtime when --image is set: docker, gvisor, kata, firecracker")
+	runCmd.Flags().StringVar(&llmUpstream, "llm-upstream", "", "start the model-plane LLM proxy in front of this provider base URL (e.g. https://api.openai.com)")
+	runCmd.Flags().StringVar(&llmMode, "llm-mode", "warn", "LLM-proxy guardrail mode: off, warn, or block")
+	runCmd.Flags().IntVar(&maxTokens, "max-tokens", 0, "per-session LLM token budget (0 = unlimited)")
+	runCmd.Flags().Float64Var(&maxCost, "max-cost", 0, "per-session LLM cost budget in USD (0 = unlimited)")
+	runCmd.Flags().IntVar(&maxRequests, "max-requests", 0, "per-session LLM request budget (0 = unlimited)")
+	runCmd.Flags().IntVar(&loopThreshold, "loop-threshold", 0, "block after N identical LLM requests in 60s (0 = off)")
 	cmd.AddCommand(runCmd)
 
 	cmd.AddCommand(&cobra.Command{

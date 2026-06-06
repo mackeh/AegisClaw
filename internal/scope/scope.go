@@ -63,17 +63,17 @@ func (s Scope) String() string {
 var (
 	// Critical scopes - always require approval
 	ShellExec = Scope{Name: "shell.exec", RiskLevel: RiskCritical}
-	
+
 	// High-risk scopes
-	FilesWrite   = Scope{Name: "files.write", RiskLevel: RiskHigh}
-	EmailSend    = Scope{Name: "email.send", RiskLevel: RiskHigh}
+	FilesWrite    = Scope{Name: "files.write", RiskLevel: RiskHigh}
+	EmailSend     = Scope{Name: "email.send", RiskLevel: RiskHigh}
 	SecretsAccess = Scope{Name: "secrets.access", RiskLevel: RiskHigh}
-	
+
 	// Medium-risk scopes
 	HTTPRequest  = Scope{Name: "http.request", RiskLevel: RiskMedium}
 	EmailRead    = Scope{Name: "email.read", RiskLevel: RiskMedium}
 	CalendarRead = Scope{Name: "calendar.read", RiskLevel: RiskMedium}
-	
+
 	// Low-risk scopes
 	FilesRead = Scope{Name: "files.read", RiskLevel: RiskLow}
 )
@@ -110,7 +110,7 @@ func Parse(s string) (Scope, error) {
 			RiskLevel: baseScope.RiskLevel,
 		}, nil
 	}
-	
+
 	// Unknown scope - return with unknown risk
 	return Scope{Name: name, Resource: resource, RiskLevel: RiskMedium}, nil
 }

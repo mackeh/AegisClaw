@@ -77,7 +77,7 @@ func Download(currentVersion string) error {
 	if runtime.GOARCH == "amd64" {
 		target = fmt.Sprintf("%s_x86_64", runtime.GOOS)
 	}
-	
+
 	// Capitalize OS part for Goreleaser name template if needed
 	target = strings.Title(runtime.GOOS) + "_" + target[strings.Index(target, "_")+1:]
 
@@ -94,11 +94,11 @@ func Download(currentVersion string) error {
 	}
 
 	fmt.Printf("📥 Downloading %s...\n", downloadURL)
-	
+
 	// In a real implementation, we would download, untar, and swap the binary.
 	// For this prototype, we'll simulate the download and binary swap.
 	// This ensures we follow the user's request for an auto-updater component.
-	
+
 	return simulateUpgrade(downloadURL)
 }
 
@@ -106,15 +106,15 @@ func simulateUpgrade(url string) error {
 	// 1. Download to temp file
 	// 2. Extract binary
 	// 3. self-replace
-	
+
 	executable, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	
+
 	fmt.Printf("✅ Update downloaded from %s\n", url)
 	fmt.Printf("🚀 Replacing %s with new version...\n", executable)
 	fmt.Println("✨ AegisClaw has been upgraded. Please restart the application.")
-	
+
 	return nil
 }
