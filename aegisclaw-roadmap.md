@@ -204,12 +204,15 @@ skills. v0.9.x prioritises these:
 
 These priorities are not theoretical. Publicly reported incidents in other
 autonomous agents — see [`aegisclaw-threat-cases.md`](aegisclaw-threat-cases.md)
-for the Hermes agent case study — show the recurring failure modes:
+for the Hermes and OpenClaw case studies — show the recurring failure modes:
 unauthenticated RCE from an exposed control plane, keyword-scanner bypass via
-dynamic string construction, symlink/path traversal, and opt-in (off-by-default)
-secret redaction. AegisClaw treats each as a *class* to be contained by
-defense-in-depth, not patched once. The network-exposure safeguard and MCP
-hardening that case study motivated both shipped in v0.9.0.
+dynamic string construction, symlink/path traversal, opt-in (off-by-default)
+secret redaction, and social-engineered exfiltration where a "strict" system
+prompt was the only thing between a phishing email and the agent mailing out
+AWS keys (the 2026 Varonis OpenClaw test). AegisClaw treats each as a *class*
+to be contained by defense-in-depth, not patched once: the network-exposure
+safeguard and MCP hardening shipped in v0.9.0; the harness control plane that
+gates exfiltration-capable actions outside the model shipped in v0.10.0.
 
 ### 🔭 v0.9.x — Remaining Threat-Hardening Work
 

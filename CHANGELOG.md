@@ -4,6 +4,21 @@ All notable changes to AegisClaw are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **OpenClaw phishing case study** in
+  [`aegisclaw-threat-cases.md`](aegisclaw-threat-cases.md): the 2026 Varonis
+  Threat Labs test in which a phishing email impersonating a team lead
+  convinced an OpenClaw agent to email AWS IAM keys, SSH credentials, and a
+  CRM export to an external attacker — despite a "strict, verify-the-sender"
+  system prompt. Maps the vulnerability classes (social-engineered
+  exfiltration, prompt-as-policy, over-privileged data access, unrestricted
+  outbound channel) to the AegisClaw controls that contain each, including an
+  honest account of what the guardrails would *not* have caught and why the
+  action-layer gates hold anyway. README and roadmap updated to reference it.
+
 ## [0.10.0] - 2026-06-06 — Agent Harness Control Plane
 
 This release reframes AegisClaw from a skill executor into an inline **control

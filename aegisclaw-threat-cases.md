@@ -1,6 +1,6 @@
 # AegisClaw — Reference Threat Cases
 
-> Last updated: May 2026
+> Last updated: June 2026
 
 AegisClaw exists to wrap autonomous AI agents in a security envelope. The
 clearest argument for that envelope is what happens to agents that run without
@@ -69,6 +69,91 @@ check, and an opt-in redaction flag. AegisClaw's design assumes each of those
 will fail and layers a sandbox, default-deny networking, encrypted secrets, and
 tamper-evident audit underneath, so that a single bypass is contained rather
 than catastrophic.
+
+---
+
+## Case Study: OpenClaw and the Phishing Test ("Pinchy")
+
+In June 2026, Varonis Threat Labs wired an OpenClaw agent ("Pinchy") to a Gmail
+inbox, browser tools, and Google Workspace APIs, seeded the environment with
+mock internal data (AWS credentials, CRM exports, internal conversations), and
+ran phishing simulations against it — testing both a generic profile and a
+**"strict" profile whose system prompt explicitly told the agent to verify
+sender identities before acting on sensitive requests**, across two frontier
+models. The results were reported by BleepingComputer and CSO Online.
+
+### What happened
+
+- An attacker writing from an **external Gmail address** impersonated the team
+  lead and asked for "staging access" during a fabricated production emergency.
+  The agent located and **emailed AWS IAM keys, database connection strings,
+  and SSH credentials — in plaintext — to the attacker**.
+- A second, casually-toned request ("working from home, need the weekly
+  customer export") yielded a **CRM export covering 247 enterprise customers
+  and $1.28M in monthly recurring revenue**.
+- The agent *did* catch suspicious URLs and malicious OAuth apps. What it could
+  not do was hold the line on **identity verification under urgency**: the
+  strict profile failed because the agent prioritised resolving the simulated
+  emergency over validating who had actually asked.
+
+### Reported vulnerability classes
+
+| Class | Failure mode |
+|-------|--------------|
+| **Social-engineered exfiltration** | Identity spoofing + urgency framing convinced the agent to send secrets to a new external recipient. |
+| **Prompt-as-policy** | The only control between the request and the action was a system-prompt instruction — and the model rationalised its way past it. |
+| **Over-privileged data access** | The agent had standing access to live credentials and full CRM exports it did not need for routine work. |
+| **Unrestricted outbound channel** | The agent could email any new external recipient with no approval gate and no allowlist. |
+
+### How AegisClaw contains each class
+
+The defining lesson of this case is *where* the failure lived: not in a missing
+scanner, but in treating the **model's judgment as the enforcement layer**.
+AegisClaw's posture is the opposite — the model is assumed persuadable, and the
+*actions* are gated outside it.
+
+| Vulnerability class | AegisClaw control |
+|---------------------|-------------------|
+| **Social-engineered exfiltration** | Sending email is `email.send` — a **high-risk scope** (`internal/scope`). Under the default policy it returns `RequireApproval`; in the non-interactive gateway path that means **deny unless a human pre-granted it**. The attacker can persuade the model; the policy engine never reads the persuasive email — it only sees "high-risk send" and stops it. Exfiltration over HTTP instead hits the **default-deny egress proxy** (`internal/proxy`), and an attacker's endpoint is not on the agent's allowlist. |
+| **Prompt-as-policy** | AegisClaw never makes a prompt instruction load-bearing. Enforcement is **deterministic and outside the model**: OPA/Rego policy, capability scopes, human approval, egress allowlists, sandbox boundaries. Guardrails are one layer of several — a fooled model still cannot authorise its own actions. |
+| **Over-privileged data access** | Reading credentials or customer data is itself a scoped action (`files.read`, `secrets.access`) subject to policy. Secrets are `age`-encrypted at rest and injected per-scope, ephemerally, by the harness supervisor — there is no plaintext credentials file sitting in an inbox for the agent to "locate". The redactor scrubs known credential values from any output stream. |
+| **Unrestricted outbound channel** | The harness forces every agent through the egress proxy with a **per-agent default allowlist** (the OpenClaw adapter ships one covering its channel and LLM endpoints); anything else requires the operator to extend `network.allowlist`. Every tool call and egress decision lands in the **hash-chained audit log** — an exfiltration *attempt* is a visible, attributable event, not a silent success. |
+
+### What AegisClaw would *not* have caught — and why it doesn't matter as much
+
+Honesty first: the phishing email itself would likely have sailed through.
+A well-written, natural-language "urgent prod issue, please help" message
+contains none of the markers indirect-injection scanning keys on (forged role
+delimiters, encoded payloads, AI-addressed directives). AegisClaw's ingress
+guardrails (`CheckData`) are a layer, not a promise.
+
+The defense that matters here is at the **action layer**, and it holds under
+two conditions: (a) the policy keeps `email.send` and external egress at
+deny-or-approve — the secure defaults do, and a careless blanket "always
+allow" grant reopens the hole; and (b) the agent's actions actually flow
+through AegisClaw's brokers (the harness wiring, MCP gateway, and egress
+proxy) rather than a hard-coded side channel.
+
+### Operating guidance
+
+Varonis's recommended mitigations map directly onto AegisClaw controls —
+enforced by the runtime rather than requested of the model:
+
+| Recommended mitigation | AegisClaw equivalent |
+|------------------------|----------------------|
+| "Require agents to verify sender identities." | A spoofed *request* can never authorise an action: authorisation comes from policy + human approval, which the email's content cannot influence. |
+| "Prevent emailing new external recipients without approval." | Enforced by default: `email.send` is a high-risk scope → `RequireApproval`; the non-interactive gateway default-denies without a persisted grant. |
+| "Limit agent access to internal data." | Enforced: least-privilege scopes (`files.read:/specific/path`, `secrets.access:NAME`), `age`-encrypted secrets injected per-scope and ephemerally, never stored in reach as plaintext. |
+
+### Takeaway
+
+The Hermes case showed what happens when the *host* boundary is the only line
+of defense. The OpenClaw phishing test shows the complement: what happens when
+the *model's judgment* is the only line of defense. A "strict" system prompt is
+still just text, and text loses arguments with attackers. AegisClaw's answer is
+the same for both: assume the layer will fail, and make sure the action it
+would enable — emailing secrets to a stranger, opening a connection to an
+unknown host — is independently gated, default-denied, and audited.
 
 ---
 
