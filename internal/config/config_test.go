@@ -112,3 +112,4 @@ func TestSave_Permissions(t *testing.T) {
 		t.Errorf("expected file mode 0600, got %o", perm)
 	}
 }
+
