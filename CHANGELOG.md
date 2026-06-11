@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
+- **Egress proxy SSRF protection + outbound DLP** (`internal/proxy`): the proxy
+  now blocks destinations resolving to loopback, private, link-local, and
+  **cloud instance-metadata** addresses (`169.254.169.254`, `100.100.100.200`,
+  …), validated at dial time (`safeDial`) to defeat DNS rebinding — closing the
+  "trick an agent into reading IAM credentials from the metadata service" path.
+  It also blocks plaintext outbound requests carrying known secret values; the
+  harness supervisor feeds the agent's own injected secrets to this DLP. SSRF
+  protection is on by default; `network.allow_private_egress` opts out, and
+  metadata endpoints stay blocked regardless. Wired into the harness network
+  plane and the skill sandbox egress path.
 - **OpenClaw phishing case study** in
   [`aegisclaw-threat-cases.md`](aegisclaw-threat-cases.md): the 2026 Varonis
   Threat Labs test in which a phishing email impersonating a team lead

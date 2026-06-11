@@ -41,7 +41,7 @@ When a skill runs, the path through the codebase is:
 3. **Policy** (`internal/policy/`) — OPA/Rego engine. Evaluates scope requests → returns `Allow`, `Deny`, or `RequireApproval`
 4. **Approval** (`internal/approval/`) — Bubbletea TUI for interactive approve/deny/always-approve prompts
 5. **Sandbox** (`internal/sandbox/`) — Docker executor with hardened defaults (all caps dropped, read-only rootfs, 512MB mem, 1 CPU, 100 pids, no-new-privileges). Pluggable runtime: Docker, gVisor, Kata, Firecracker. `ComposeExecutor` for multi-container skills. `DockerExecutor.Run` is one-shot (skills); `DockerExecutor.Start` returns a detached `Process` handle for long-lived agents (used by the harness)
-6. **Proxy** (`internal/proxy/`) — HTTP/CONNECT egress proxy enforcing domain allowlists
+6. **Proxy** (`internal/proxy/`) — HTTP/CONNECT egress proxy: domain allowlist + SSRF protection (blocks loopback/private/link-local and cloud-metadata IPs, validated at dial time via `safeDial` to defeat DNS rebinding) + outbound DLP (blocks plaintext requests carrying registered secret values). SSRF defaults on; `network.allow_private_egress` opts out (metadata endpoints stay blocked)
 7. **Redactor** (`internal/security/redactor/`) — Wraps io.Writer to scrub secrets from output in real-time
 8. **Audit** (`internal/audit/`) — Append-only JSON log with SHA256 hash chain. `Verify()` checks integrity
 

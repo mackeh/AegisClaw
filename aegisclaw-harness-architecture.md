@@ -72,7 +72,7 @@ intercepting. AegisClaw should own all four as **inline brokers**:
 |---|---|---|---|
 | **Tools** | Calls MCP / built-in tools | **MCP gateway** the agent is pointed at | `internal/mcp` (server → must become a *proxy*) |
 | **Model** | Calls an LLM provider | **LLM proxy** (OpenAI/Anthropic-compatible) | `guardrails`, `redactor` (need an HTTP shim) |
-| **Network** | Arbitrary HTTP / egress | **Egress proxy** (already built) | `internal/proxy` (make mandatory + inspecting) |
+| **Network** | Arbitrary HTTP / egress | **Egress proxy** (allowlist + SSRF/metadata block + outbound DLP) | `internal/proxy` (wired into the harness) |
 | **Host** | Files / processes / syscalls | **Sandbox the agent runs *inside*** | `internal/sandbox`, `internal/ebpf` |
 
 The key realization: **AegisClaw already owns ~80% of the enforcement
@@ -242,10 +242,15 @@ out of the gateway naturally.
   "agentic loop & cost guards" item. Follow-up: precise tokenizer-based counts
   (currently provider-reported usage with a char/4 estimate fallback) and
   response-body guardrails on streamed (SSE) responses.
-- **Egress proxy** (`internal/proxy`): exists but is optional/per-skill. Make it
-  the **mandatory, content-inspecting** egress broker for the agent: DLP on
-  requests (credential leak), injection scan on responses, SSRF blocking,
-  default-deny allowlist.
+- **Egress proxy** (`internal/proxy`): exists and is wired into the harness.
+  ✅ *Hardened with SSRF protection + outbound DLP.* Beyond the domain allowlist
+  it now blocks destinations resolving to loopback/private/link-local addresses
+  and **cloud instance-metadata endpoints** (validated at dial time to defeat
+  DNS rebinding), and blocks plaintext requests carrying the agent's own
+  injected secrets (the harness feeds resolved secret values to the proxy's
+  DLP). Configurable via `network.allow_private_egress` (default off; metadata
+  endpoints stay blocked regardless). Remaining follow-up: response-injection
+  scanning on proxied HTTP responses.
 
 ## 7. Mapping to the existing codebase
 

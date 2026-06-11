@@ -26,6 +26,10 @@ type Supervisor struct {
 	Secrets *secrets.Manager
 	// AllowedDomains is the egress allowlist applied to the agent's traffic.
 	AllowedDomains []string
+	// AllowPrivateEgress permits the agent to reach private/loopback/link-local
+	// addresses through the egress proxy. Default false (SSRF protection on);
+	// cloud metadata endpoints stay blocked regardless.
+	AllowPrivateEgress bool
 	// Launcher runs the prepared command. Defaults to ProcessLauncher.
 	Launcher Launcher
 	// WorkDir is the agent's working directory ("" inherits the cwd).
@@ -69,6 +73,7 @@ func (s *Supervisor) Run(ctx context.Context, adapter AgentAdapter, userArgs []s
 	// Merge the adapter's default egress allowlist with the configured one.
 	allowed := mergeDomains(s.AllowedDomains, adapter.DefaultEgressDomains())
 	ep := proxy.NewEgressProxy(allowed, s.Logger)
+	ep.BlockPrivateIPs = !s.AllowPrivateEgress // SSRF protection on by default
 	proxyURL, err := ep.Start()
 	if err != nil {
 		return -1, fmt.Errorf("failed to start egress proxy: %w", err)
@@ -106,6 +111,9 @@ func (s *Supervisor) Run(ctx context.Context, adapter AgentAdapter, userArgs []s
 			continue
 		}
 		resolved[sec.EnvVar] = val
+		// Also register the value with the egress proxy's DLP so the agent
+		// cannot exfiltrate its own injected secret through a plaintext request.
+		ep.AddSecret(val)
 		// Note: the secret *value* is never logged — only its name, target env
 		// var, and the scope it was gated on.
 		s.audit("harness.secret.inject", "allow", actor, map[string]any{
