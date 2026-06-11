@@ -81,9 +81,11 @@ optionally selecting a stronger runtime with --runtime gvisor.`,
 			// with the dedicated egress plane). A missing config is non-fatal.
 			var allowlist []string
 			var allowPrivate bool
+			var guardMode string
 			if cfg, lerr := config.LoadDefault(); lerr == nil && cfg != nil {
 				allowlist = cfg.Network.Allowlist
 				allowPrivate = cfg.Network.AllowPrivateEgress
+				guardMode = cfg.Guardrails.Mode
 			}
 
 			sup := &harness.Supervisor{
@@ -92,6 +94,7 @@ optionally selecting a stronger runtime with --runtime gvisor.`,
 				Secrets:            secrets.NewManager(filepath.Join(cfgDir, "secrets")),
 				AllowedDomains:     allowlist,
 				AllowPrivateEgress: allowPrivate,
+				GuardMode:          guardMode,
 				WorkDir:            workDir,
 				Image:              image,
 

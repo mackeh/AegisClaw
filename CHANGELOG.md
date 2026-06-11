@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
+- **Egress proxy response scanning** (`internal/proxy`): the proxy now scans the
+  bodies of plaintext HTTP responses the agent fetches for indirect prompt
+  injection (`guardrails.CheckData`) before relaying them — in "block" mode a
+  poisoned page is replaced with a 502 so it never reaches the agent; in "warn"
+  mode it is audited and passed through. Gated by `Guard`/`GuardMode` (wired from
+  `guardrails.mode` by the harness). Text-like responses only; HTTPS `CONNECT`
+  tunnels stay opaque (the MCP gateway and LLM proxy cover those planes).
 - **Egress proxy SSRF protection + outbound DLP** (`internal/proxy`): the proxy
   now blocks destinations resolving to loopback, private, link-local, and
   **cloud instance-metadata** addresses (`169.254.169.254`, `100.100.100.200`,

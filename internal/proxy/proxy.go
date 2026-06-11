@@ -11,11 +11,16 @@ import (
 	"time"
 
 	"github.com/mackeh/AegisClaw/internal/audit"
+	"github.com/mackeh/AegisClaw/internal/guardrails"
 )
 
 // dlpMaxBody bounds how much of a plaintext request body the proxy will buffer
 // to scan for secret exfiltration.
 const dlpMaxBody = 4 << 20 // 4MB
+
+// scanMaxBody bounds how much of a plaintext HTTP response the proxy buffers to
+// scan for indirect prompt injection before relaying it.
+const scanMaxBody = 4 << 20 // 4MB
 
 // metadataIPs are cloud instance-metadata endpoints. Reaching them is almost
 // never legitimate for an agent and is a classic credential-theft path
@@ -38,6 +43,13 @@ type EgressProxy struct {
 	// BlockMetadata blocks cloud instance-metadata endpoints. Default true; it
 	// stays in effect even if BlockPrivateIPs is disabled.
 	BlockMetadata bool
+
+	// Guard, when set with GuardMode "warn" or "block", scans the bodies of
+	// plaintext HTTP responses the agent fetches for indirect prompt injection.
+	// HTTPS (CONNECT) responses are encrypted tunnels and cannot be inspected
+	// here — the MCP gateway and LLM proxy cover the tool and model planes.
+	Guard     *guardrails.Engine
+	GuardMode string // "off" (default), "warn", or "block"
 
 	secrets []string                            // known secret values for outbound DLP
 	resolve func(host string) ([]net.IP, error) // injectable for tests
@@ -152,6 +164,13 @@ func (p *EgressProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("✅ Proxy received response from %s with status: %d\n", r.URL.Host, resp.StatusCode)
 
+	// Scan fetched plaintext content for indirect prompt injection before it
+	// flows back to the agent.
+	if p.scanningEnabled() && isScannableResponse(resp) {
+		p.scanRelay(w, resp, host)
+		return
+	}
+
 	for k, v := range resp.Header {
 		for _, vv := range v {
 			w.Header().Add(k, vv)
@@ -159,6 +178,41 @@ func (p *EgressProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+}
+
+func (p *EgressProxy) scanningEnabled() bool {
+	return p.Guard != nil && p.GuardMode != "" && p.GuardMode != "off"
+}
+
+// scanRelay buffers the response prefix, scans it for indirect prompt
+// injection, and relays it. In "block" mode a violation replaces the body with
+// a 502 so the poisoned content never reaches the agent; in "warn" mode it is
+// audited and passed through.
+func (p *EgressProxy) scanRelay(w http.ResponseWriter, resp *http.Response, host string) {
+	prefix, _ := io.ReadAll(io.LimitReader(resp.Body, scanMaxBody))
+
+	if res := p.Guard.CheckData("egress:"+host, string(prefix)); !res.Allowed {
+		if p.GuardMode == "block" {
+			p.auditDeny(host, "indirect prompt injection in fetched response: "+violationSummary(res.Violations))
+			http.Error(w, "Response blocked by AegisClaw (indirect prompt injection in fetched content)", http.StatusBadGateway)
+			return
+		}
+		fmt.Printf("⚠️  Guardrail violation in response from %s: %s\n", host, violationSummary(res.Violations))
+		if p.Logger != nil {
+			_ = p.Logger.Log("network.egress.response", nil, "warn", "proxy", map[string]any{
+				"host": host, "violations": violationSummary(res.Violations),
+			})
+		}
+	}
+
+	for k, v := range resp.Header {
+		for _, vv := range v {
+			w.Header().Add(k, vv)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	_, _ = w.Write(prefix)
+	_, _ = io.Copy(w, resp.Body) // relay anything beyond the scanned prefix
 }
 
 func (p *EgressProxy) handleConnect(w http.ResponseWriter, r *http.Request) {
@@ -362,4 +416,27 @@ func containsAny(s string, subs []string) bool {
 		}
 	}
 	return false
+}
+
+// isScannableResponse reports whether a response body is text-like enough to be
+// worth scanning for prompt injection (skips images, archives, binaries).
+func isScannableResponse(resp *http.Response) bool {
+	ct := strings.ToLower(resp.Header.Get("Content-Type"))
+	if ct == "" {
+		return true
+	}
+	for _, t := range []string{"text/", "html", "json", "xml", "javascript", "application/x-yaml", "+json", "+xml"} {
+		if strings.Contains(ct, t) {
+			return true
+		}
+	}
+	return false
+}
+
+func violationSummary(vs []guardrails.Violation) string {
+	parts := make([]string, 0, len(vs))
+	for _, v := range vs {
+		parts = append(parts, string(v.Severity)+":"+v.Rule)
+	}
+	return strings.Join(parts, ", ")
 }

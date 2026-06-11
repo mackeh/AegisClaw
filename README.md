@@ -29,7 +29,7 @@ Most agent-security tools cover **one** seam — an MCP gateway, *or* an egress 
 |-------|---------------------|----------------------------|
 | 🧰 **Tools** | Calls MCP / built-in tools | MCP gateway: per-call policy + approval, argument & response guardrails, **tool-description pinning** (catches tool-poisoning), audit |
 | 🧠 **Model** | Calls an LLM | LLM proxy: prompt/response guardrails, secret redaction, **per-session token / cost / loop budgets**, audit |
-| 🌐 **Network** | Makes HTTP requests | Forced egress proxy: per-agent allowlist + **SSRF / cloud-metadata blocking** (no stealing IAM creds from `169.254.169.254`) + outbound **DLP** on the agent's own secrets |
+| 🌐 **Network** | Makes HTTP requests | Forced egress proxy: per-agent allowlist + **SSRF / cloud-metadata blocking** (no stealing IAM creds from `169.254.169.254`) + outbound **DLP** on the agent's own secrets + **injection scan** of fetched plaintext content |
 | 💻 **Host** | Files / processes / code | Runs the **whole agent inside a hardened sandbox** (gVisor/Firecracker), all caps dropped, read-only rootfs |
 
 This matters because of three deliberate design choices:
@@ -342,9 +342,11 @@ outbound traffic is filtered against `network.allowlist` **and** SSRF-protected:
 the proxy refuses connections to loopback, private, and cloud
 instance-metadata addresses (so a hijacked agent can't read IAM credentials from
 `169.254.169.254`), validated at dial time to defeat DNS rebinding, and it blocks
-plaintext requests that carry the agent's own injected secrets. Set
-`network.allow_private_egress: true` to permit private destinations if you need
-them (metadata endpoints stay blocked). Secrets declared by an adapter are
+plaintext requests that carry the agent's own injected secrets. It also **scans
+the bodies of plaintext responses the agent fetches for indirect prompt
+injection** (per `guardrails.mode`), so a poisoned web page can't hijack the
+agent on the way in. Set `network.allow_private_egress: true` to permit private
+destinations if you need them (metadata endpoints stay blocked). Secrets declared by an adapter are
 resolved from the encrypted store and injected as environment variables for the
 process lifetime only — never written to disk or the audit log. The adapter
 model is pluggable, so the harness is **not limited to** any one agent. Three

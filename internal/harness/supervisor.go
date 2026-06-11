@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/mackeh/AegisClaw/internal/audit"
+	"github.com/mackeh/AegisClaw/internal/guardrails"
 	"github.com/mackeh/AegisClaw/internal/llmproxy"
 	"github.com/mackeh/AegisClaw/internal/proxy"
 	"github.com/mackeh/AegisClaw/internal/secrets"
@@ -30,6 +31,10 @@ type Supervisor struct {
 	// addresses through the egress proxy. Default false (SSRF protection on);
 	// cloud metadata endpoints stay blocked regardless.
 	AllowPrivateEgress bool
+	// GuardMode controls indirect-prompt-injection scanning of plaintext HTTP
+	// responses the agent fetches through the egress proxy: "off", "warn", or
+	// "block" (empty defaults to "warn").
+	GuardMode string
 	// Launcher runs the prepared command. Defaults to ProcessLauncher.
 	Launcher Launcher
 	// WorkDir is the agent's working directory ("" inherits the cwd).
@@ -74,6 +79,12 @@ func (s *Supervisor) Run(ctx context.Context, adapter AgentAdapter, userArgs []s
 	allowed := mergeDomains(s.AllowedDomains, adapter.DefaultEgressDomains())
 	ep := proxy.NewEgressProxy(allowed, s.Logger)
 	ep.BlockPrivateIPs = !s.AllowPrivateEgress // SSRF protection on by default
+	guardMode := s.GuardMode
+	if guardMode == "" {
+		guardMode = "warn"
+	}
+	ep.Guard = guardrails.NewEngine()
+	ep.GuardMode = guardMode // scan fetched plaintext responses for injection
 	proxyURL, err := ep.Start()
 	if err != nil {
 		return -1, fmt.Errorf("failed to start egress proxy: %w", err)
