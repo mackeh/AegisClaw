@@ -271,6 +271,12 @@ those four action paths. Full design in
   Plane" panel. (The numeric posture score is left unchanged — it scores
   configuration, not runtime activity.)
 
+- [x] **Egress-plane hardening**: the network plane gained SSRF protection
+  (blocks loopback/private/link-local and cloud instance-metadata destinations,
+  dial-time validated against DNS rebinding) and outbound DLP (blocks plaintext
+  requests carrying the agent's own injected secrets). Closes the
+  metadata-credential-theft path highlighted by the OpenClaw phishing case.
+
 **The harness control-plane initiative is complete: all four agent action paths
 — tools, model, network, and host — are brokered, with first-class OpenClaw and
 Hermes adapters and a generic adapter for everything else.**

@@ -57,6 +57,10 @@ type SecurityConfig struct {
 type NetworkConfig struct {
 	DefaultDeny bool     `yaml:"default_deny"`
 	Allowlist   []string `yaml:"allowlist"`
+	// AllowPrivateEgress permits the harness egress proxy to reach private,
+	// loopback, and link-local addresses. Default false (SSRF protection on).
+	// Cloud instance-metadata endpoints stay blocked regardless.
+	AllowPrivateEgress bool `yaml:"allow_private_egress"`
 }
 
 // DefaultConfigDir returns the default configuration directory path

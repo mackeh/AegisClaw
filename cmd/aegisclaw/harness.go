@@ -80,17 +80,20 @@ optionally selecting a stronger runtime with --runtime gvisor.`,
 			// Egress allowlist comes from config (default-deny tightening lands
 			// with the dedicated egress plane). A missing config is non-fatal.
 			var allowlist []string
+			var allowPrivate bool
 			if cfg, lerr := config.LoadDefault(); lerr == nil && cfg != nil {
 				allowlist = cfg.Network.Allowlist
+				allowPrivate = cfg.Network.AllowPrivateEgress
 			}
 
 			sup := &harness.Supervisor{
-				ConfigDir:      cfgDir,
-				Logger:         logger,
-				Secrets:        secrets.NewManager(filepath.Join(cfgDir, "secrets")),
-				AllowedDomains: allowlist,
-				WorkDir:        workDir,
-				Image:          image,
+				ConfigDir:          cfgDir,
+				Logger:             logger,
+				Secrets:            secrets.NewManager(filepath.Join(cfgDir, "secrets")),
+				AllowedDomains:     allowlist,
+				AllowPrivateEgress: allowPrivate,
+				WorkDir:            workDir,
+				Image:              image,
 
 				LLMUpstream:      llmUpstream,
 				LLMMode:          llmMode,
