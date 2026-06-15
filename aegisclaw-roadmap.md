@@ -283,6 +283,16 @@ Hermes adapters and a generic adapter for everything else.**
 
 ### 🔭 v0.10.x — Compliance & Federation
 
+- [x] **OWASP ASI compliance assessment**: map AegisClaw controls to the
+  OWASP Top 10 for Agentic Applications (ASI01-ASI10), exposed through
+  `aegisclaw compliance assess`, MCP tools, and dashboard APIs.
+- [x] **Compliance report export**: generate JSON compliance reports that
+  combine OWASP ASI coverage, audit summaries, policy summaries, and audit
+  chain verification.
+- [x] **Data lineage query surface**: record and query provenance metadata for
+  skill inputs, outputs, secrets, external API calls, and file activity.
+- [x] **OpenTelemetry GenAI naming constants**: add shared GenAI semantic
+  convention keys for future agent execution spans and metrics.
 - **Compliance frameworks**: pre-built policy packs for SOC 2, HIPAA, and GDPR.
 - **Federated skill trust**: cross-organisation skill sharing with cryptographic
   trust chains.
@@ -302,5 +312,9 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 - 🔐 MCP server hardening (per-tool auth, rate limiting, audit)
 - 🧪 Security testing and fuzzing of the sandbox and guardrail boundaries
 - 📚 Documentation improvements and tutorials
+- 🔨 Implementing eBPF probes for Linux (`internal/ebpf`)
+- 🛡️ OWASP ASI compliance mapping and gap analysis
+- 🔗 SIEM log format adapters (Syslog, Splunk HEC, Elasticsearch)
+- 🌐 A2A/MCP gateway prototyping
 
 Report bugs or request features via [GitHub Issues](https://github.com/mackeh/AegisClaw/issues).

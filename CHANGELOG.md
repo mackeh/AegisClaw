@@ -6,37 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
-### Added
+_No unreleased changes._
 
-- **Egress proxy response scanning** (`internal/proxy`): the proxy now scans the
-  bodies of plaintext HTTP responses the agent fetches for indirect prompt
-  injection (`guardrails.CheckData`) before relaying them — in "block" mode a
-  poisoned page is replaced with a 502 so it never reaches the agent; in "warn"
-  mode it is audited and passed through. Gated by `Guard`/`GuardMode` (wired from
-  `guardrails.mode` by the harness). Text-like responses only; HTTPS `CONNECT`
-  tunnels stay opaque (the MCP gateway and LLM proxy cover those planes).
-- **Egress proxy SSRF protection + outbound DLP** (`internal/proxy`): the proxy
-  now blocks destinations resolving to loopback, private, link-local, and
-  **cloud instance-metadata** addresses (`169.254.169.254`, `100.100.100.200`,
-  …), validated at dial time (`safeDial`) to defeat DNS rebinding — closing the
-  "trick an agent into reading IAM credentials from the metadata service" path.
-  It also blocks plaintext outbound requests carrying known secret values; the
-  harness supervisor feeds the agent's own injected secrets to this DLP. SSRF
-  protection is on by default; `network.allow_private_egress` opts out, and
-  metadata endpoints stay blocked regardless. Wired into the harness network
-  plane and the skill sandbox egress path.
-- **OpenClaw phishing case study** in
-  [`aegisclaw-threat-cases.md`](aegisclaw-threat-cases.md): the 2026 Varonis
-  Threat Labs test in which a phishing email impersonating a team lead
-  convinced an OpenClaw agent to email AWS IAM keys, SSH credentials, and a
-  CRM export to an external attacker — despite a "strict, verify-the-sender"
-  system prompt. Maps the vulnerability classes (social-engineered
-  exfiltration, prompt-as-policy, over-privileged data access, unrestricted
-  outbound channel) to the AegisClaw controls that contain each, including an
-  honest account of what the guardrails would *not* have caught and why the
-  action-layer gates hold anyway. README and roadmap updated to reference it.
-
-## [0.10.0] - 2026-06-06 — Agent Harness Control Plane
+## [0.10.0] - 2026-06-15 — Agent Harness Control Plane
 
 This release reframes AegisClaw from a skill executor into an inline **control
 plane that governs a whole running agent** (OpenClaw, Hermes, or any other),
@@ -97,6 +69,37 @@ behind one default-deny policy and one tamper-evident audit chain. See
   via `aegisclaw harness run --llm-upstream …` (which points the agent's
   `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` at the proxy). Closes the agentic-loop
   & cost-guard roadmap item.
+- **Egress proxy response scanning** (`internal/proxy`): the proxy now scans the
+  bodies of plaintext HTTP responses the agent fetches for indirect prompt
+  injection (`guardrails.CheckData`) before relaying them — in "block" mode a
+  poisoned page is replaced with a 502 so it never reaches the agent; in "warn"
+  mode it is audited and passed through. Gated by `Guard`/`GuardMode` (wired from
+  `guardrails.mode` by the harness). Text-like responses only; HTTPS `CONNECT`
+  tunnels stay opaque (the MCP gateway and LLM proxy cover those planes).
+- **Egress proxy SSRF protection + outbound DLP** (`internal/proxy`): the proxy
+  now blocks destinations resolving to loopback, private, link-local, and
+  **cloud instance-metadata** addresses (`169.254.169.254`, `100.100.100.200`,
+  ...), validated at dial time (`safeDial`) to defeat DNS rebinding. It also
+  blocks plaintext outbound requests carrying known secret values; the harness
+  supervisor feeds the agent's own injected secrets to this DLP. SSRF protection
+  is on by default; `network.allow_private_egress` opts out, and metadata
+  endpoints stay blocked regardless.
+- **OWASP ASI compliance assessment** (`internal/compliance`): maps AegisClaw
+  controls to the OWASP Top 10 for Agentic Applications (ASI01-ASI10), exposed
+  through `aegisclaw compliance assess`, MCP tools, and dashboard APIs.
+- **Compliance report export**: generates JSON reports combining OWASP ASI
+  coverage, audit summaries, policy summaries, and audit chain verification via
+  `aegisclaw compliance report`.
+- **Data lineage tracking** (`internal/lineage`): records and queries provenance
+  metadata for skill inputs, outputs, secrets, external API calls, and file
+  activity through MCP and dashboard APIs.
+- **OpenTelemetry GenAI semantic convention constants** (`internal/telemetry`):
+  adds shared `gen_ai.*` and `aegisclaw.*` keys for future agent execution spans
+  and metrics.
+- **OpenClaw phishing case study** in
+  [`aegisclaw-threat-cases.md`](aegisclaw-threat-cases.md): maps the 2026
+  Varonis Threat Labs social-engineered exfiltration test to AegisClaw controls
+  and documents where action-layer gates hold beyond prompt-only defenses.
 
 - **Agent Control Plane dashboard view** (`GET /api/harness`): reports the four
   enforcement planes (tools, model, network, host) with activity derived from the

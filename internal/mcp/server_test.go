@@ -11,8 +11,8 @@ func TestNewServer(t *testing.T) {
 	if s == nil {
 		t.Fatal("expected non-nil server")
 	}
-	if len(s.tools) != 4 {
-		t.Errorf("expected 4 tools, got %d", len(s.tools))
+	if len(s.tools) != 7 {
+		t.Errorf("expected 7 tools, got %d", len(s.tools))
 	}
 }
 
@@ -59,8 +59,8 @@ func TestHandleRequest_ToolsList(t *testing.T) {
 	}
 
 	tools := result["tools"].([]Tool)
-	if len(tools) != 4 {
-		t.Errorf("expected 4 tools, got %d", len(tools))
+	if len(tools) != 7 {
+		t.Errorf("expected 7 tools, got %d", len(tools))
 	}
 
 	toolNames := map[string]bool{}
@@ -68,7 +68,7 @@ func TestHandleRequest_ToolsList(t *testing.T) {
 		toolNames[tool.Name] = true
 	}
 
-	expected := []string{"aegisclaw_list_skills", "aegisclaw_audit_query", "aegisclaw_posture", "aegisclaw_verify_logs"}
+	expected := []string{"aegisclaw_list_skills", "aegisclaw_audit_query", "aegisclaw_posture", "aegisclaw_verify_logs", "aegisclaw_compliance", "aegisclaw_compliance_report", "aegisclaw_lineage"}
 	for _, name := range expected {
 		if !toolNames[name] {
 			t.Errorf("expected tool '%s' not found", name)

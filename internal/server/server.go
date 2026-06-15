@@ -11,9 +11,11 @@ import (
 
 	"github.com/mackeh/AegisClaw/internal/agent"
 	"github.com/mackeh/AegisClaw/internal/audit"
+	"github.com/mackeh/AegisClaw/internal/compliance"
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/harness"
 	"github.com/mackeh/AegisClaw/internal/harness/adapters"
+	"github.com/mackeh/AegisClaw/internal/lineage"
 	"github.com/mackeh/AegisClaw/internal/openclaw"
 	"github.com/mackeh/AegisClaw/internal/sandbox"
 	"github.com/mackeh/AegisClaw/internal/server/ui"
@@ -93,6 +95,9 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/harness", guard(RoleViewer, s.handleHarness))
 	http.HandleFunc("/api/registry/search", guard(RoleViewer, s.handleRegistrySearch))
 	http.HandleFunc("/api/xray", guard(RoleViewer, s.handleXray))
+	http.HandleFunc("/api/compliance", guard(RoleViewer, s.handleCompliance))
+	http.HandleFunc("/api/compliance/report", guard(RoleViewer, s.handleComplianceReport))
+	http.HandleFunc("/api/lineage", guard(RoleViewer, s.handleLineage))
 	http.HandleFunc("/api/ws", guard(RoleViewer, s.Hub.ServeWS))
 
 	// Action endpoints — operator and above.
@@ -522,4 +527,90 @@ func (s *Server) sendResponse(w http.ResponseWriter, status int, resp Response) 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (s *Server) handleCompliance(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("config: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	cfgDir, _ := config.DefaultConfigDir()
+	auditPath := filepath.Join(cfgDir, "audit", "audit.log")
+
+	assessment, err := compliance.Assess(cfg, auditPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("assessment: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(assessment)
+}
+
+func (s *Server) handleComplianceReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("config: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	cfgDir, _ := config.DefaultConfigDir()
+	auditPath := filepath.Join(cfgDir, "audit", "audit.log")
+
+	report, err := compliance.GenerateReport(cfg, auditPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("report: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(report)
+}
+
+func (s *Server) handleLineage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cfgDir, _ := config.DefaultConfigDir()
+	lineagePath := filepath.Join(cfgDir, "audit", "lineage.log")
+
+	skillFilter := r.URL.Query().Get("skill")
+	execFilter := r.URL.Query().Get("execution_id")
+
+	var records []lineage.Record
+	var err error
+
+	switch {
+	case execFilter != "":
+		records, err = lineage.QueryByExecution(lineagePath, execFilter)
+	case skillFilter != "":
+		records, err = lineage.QueryBySkill(lineagePath, skillFilter)
+	default:
+		records, err = lineage.ReadAll(lineagePath)
+	}
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("lineage: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"records": records,
+		"total":   len(records),
+	})
 }

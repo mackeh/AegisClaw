@@ -13,7 +13,9 @@ import (
 	"time"
 
 	"github.com/mackeh/AegisClaw/internal/audit"
+	"github.com/mackeh/AegisClaw/internal/compliance"
 	"github.com/mackeh/AegisClaw/internal/config"
+	"github.com/mackeh/AegisClaw/internal/lineage"
 	"github.com/mackeh/AegisClaw/internal/posture"
 	"github.com/mackeh/AegisClaw/internal/skill"
 )
@@ -103,6 +105,43 @@ func NewServer() *Server {
 				InputSchema: map[string]interface{}{
 					"type":       "object",
 					"properties": map[string]interface{}{},
+				},
+			},
+			{
+				Name:        "aegisclaw_compliance",
+				Description: "Assess AegisClaw against the OWASP Top 10 for Agentic Applications (ASI01-ASI10). Returns per-control coverage, scores, and gaps.",
+				InputSchema: map[string]interface{}{
+					"type":       "object",
+					"properties": map[string]interface{}{},
+				},
+			},
+			{
+				Name:        "aegisclaw_compliance_report",
+				Description: "Generate a full compliance report combining OWASP ASI assessment, audit trail summary, and policy evaluation history",
+				InputSchema: map[string]interface{}{
+					"type":       "object",
+					"properties": map[string]interface{}{},
+				},
+			},
+			{
+				Name:        "aegisclaw_lineage",
+				Description: "Query data lineage records tracking inputs, outputs, secrets accessed, and API calls for skill executions",
+				InputSchema: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"skill": map[string]interface{}{
+							"type":        "string",
+							"description": "Filter by skill name",
+						},
+						"execution_id": map[string]interface{}{
+							"type":        "string",
+							"description": "Filter by execution ID",
+						},
+						"limit": map[string]interface{}{
+							"type":        "number",
+							"description": "Maximum number of records to return",
+						},
+					},
 				},
 			},
 		},
@@ -240,6 +279,12 @@ func (s *Server) handleToolCall(ctx context.Context, req request) response {
 		result, err = s.toolPosture()
 	case "aegisclaw_verify_logs":
 		result, err = s.toolVerifyLogs()
+	case "aegisclaw_compliance":
+		result, err = s.toolCompliance()
+	case "aegisclaw_compliance_report":
+		result, err = s.toolComplianceReport()
+	case "aegisclaw_lineage":
+		result, err = s.toolLineage(params.Arguments)
 	default:
 		s.logToolCall(params.Name, "unknown_tool", nil)
 		return response{JSONRPC: "2.0", ID: req.ID, Error: &rpcError{Code: -32602, Message: fmt.Sprintf("Unknown tool: %s", params.Name)}}
@@ -358,6 +403,77 @@ func (s *Server) toolVerifyLogs() (interface{}, error) {
 		return map[string]interface{}{"valid": false, "error": err.Error()}, nil
 	}
 	return map[string]interface{}{"valid": valid}, nil
+}
+
+func (s *Server) toolCompliance() (interface{}, error) {
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		return nil, err
+	}
+
+	cfgDir, err := config.DefaultConfigDir()
+	if err != nil {
+		return nil, err
+	}
+
+	auditPath := filepath.Join(cfgDir, "audit", "audit.log")
+	return compliance.Assess(cfg, auditPath)
+}
+
+func (s *Server) toolComplianceReport() (interface{}, error) {
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		return nil, err
+	}
+
+	cfgDir, err := config.DefaultConfigDir()
+	if err != nil {
+		return nil, err
+	}
+
+	auditPath := filepath.Join(cfgDir, "audit", "audit.log")
+	return compliance.GenerateReport(cfg, auditPath)
+}
+
+func (s *Server) toolLineage(args json.RawMessage) (interface{}, error) {
+	var params struct {
+		Skill       string `json:"skill"`
+		ExecutionID string `json:"execution_id"`
+		Limit       int    `json:"limit"`
+	}
+	if len(args) > 0 {
+		json.Unmarshal(args, &params)
+	}
+	if params.Limit <= 0 {
+		params.Limit = 50
+	}
+
+	cfgDir, err := config.DefaultConfigDir()
+	if err != nil {
+		return nil, err
+	}
+
+	lineagePath := filepath.Join(cfgDir, "audit", "lineage.log")
+
+	var records []lineage.Record
+
+	switch {
+	case params.ExecutionID != "":
+		records, err = lineage.QueryByExecution(lineagePath, params.ExecutionID)
+	case params.Skill != "":
+		records, err = lineage.QueryBySkill(lineagePath, params.Skill)
+	default:
+		records, err = lineage.ReadAll(lineagePath)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if len(records) > params.Limit {
+		records = records[len(records)-params.Limit:]
+	}
+
+	return map[string]interface{}{"records": records, "total": len(records)}, nil
 }
 
 func (s *Server) writeResponse(resp response) {

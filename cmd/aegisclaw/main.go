@@ -14,6 +14,7 @@ import (
 	"github.com/mackeh/AegisClaw/internal/agent"
 	"github.com/mackeh/AegisClaw/internal/audit"
 	"github.com/mackeh/AegisClaw/internal/cluster"
+	"github.com/mackeh/AegisClaw/internal/compliance"
 	"github.com/mackeh/AegisClaw/internal/config"
 	"github.com/mackeh/AegisClaw/internal/doctor"
 	"github.com/mackeh/AegisClaw/internal/guardrails"
@@ -82,6 +83,7 @@ human-in-the-loop approvals, encrypted secrets, and tamper-evident audit logging
 	rootCmd.AddCommand(xrayCmd())
 	rootCmd.AddCommand(marketplaceCmd())
 	rootCmd.AddCommand(clusterCmd())
+	rootCmd.AddCommand(complianceCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -1237,5 +1239,98 @@ func clusterCmd() *cobra.Command {
 
 	cmd.AddCommand(statusCmd)
 	cmd.AddCommand(joinCmd)
+	return cmd
+}
+
+func complianceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "compliance",
+		Short: "OWASP ASI compliance assessment",
+		Long:  "Evaluate AegisClaw against the OWASP Top 10 for Agentic Applications (ASI01-ASI10).",
+	}
+
+	assessCmd := &cobra.Command{
+		Use:   "assess",
+		Short: "Run OWASP ASI compliance assessment",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.LoadDefault()
+			if err != nil {
+				return err
+			}
+
+			cfgDir, _ := config.DefaultConfigDir()
+			auditPath := filepath.Join(cfgDir, "audit", "audit.log")
+
+			assessment, err := compliance.Assess(cfg, auditPath)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("🛡️  OWASP ASI Compliance Assessment")
+			fmt.Printf("   Framework: %s (%s)\n\n", assessment.Framework, assessment.Version)
+
+			for _, c := range assessment.Controls {
+				icon := "🔴"
+				switch c.Coverage {
+				case compliance.CoverageFull:
+					icon = "🟢"
+				case compliance.CoveragePartial:
+					icon = "🟡"
+				}
+				fmt.Printf("  %s %s %s — %s (%d%%)\n", icon, c.ID, c.Name, c.Coverage, c.Score)
+
+				if len(c.Controls) > 0 {
+					for _, ctrl := range c.Controls {
+						fmt.Printf("       ✓ %s\n", ctrl)
+					}
+				}
+				if len(c.Gaps) > 0 {
+					for _, gap := range c.Gaps {
+						fmt.Printf("       ✗ %s\n", gap)
+					}
+				}
+				fmt.Println()
+			}
+
+			fmt.Printf("  Overall: %d%% — Grade: %s\n", assessment.OverallScore, assessment.OverallGrade)
+			return nil
+		},
+	}
+
+	reportCmd := &cobra.Command{
+		Use:   "report",
+		Short: "Generate full compliance report",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.LoadDefault()
+			if err != nil {
+				return err
+			}
+
+			cfgDir, _ := config.DefaultConfigDir()
+			auditPath := filepath.Join(cfgDir, "audit", "audit.log")
+
+			report, err := compliance.GenerateReport(cfg, auditPath)
+			if err != nil {
+				return err
+			}
+
+			outputDir, _ := cmd.Flags().GetString("output")
+			if outputDir == "" {
+				outputDir = filepath.Join(cfgDir, "reports")
+			}
+
+			path, err := compliance.ExportReport(report, outputDir)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("📋 Compliance report saved to %s\n", path)
+			return nil
+		},
+	}
+	reportCmd.Flags().StringP("output", "o", "", "Output directory for report (default: ~/.aegisclaw/reports/)")
+
+	cmd.AddCommand(assessCmd)
+	cmd.AddCommand(reportCmd)
 	return cmd
 }
