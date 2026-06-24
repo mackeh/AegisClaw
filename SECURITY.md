@@ -4,9 +4,9 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 0.10.x  | :white_check_mark: |
 | 0.9.x   | :white_check_mark: |
-| 0.8.x   | :white_check_mark: |
-| < 0.8   | :x:                |
+| < 0.9   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -14,9 +14,8 @@
 
 If you discover a security vulnerability in AegisClaw, please report it privately.
 
-1.  **Email**: security@aegisclaw.dev (Replace with actual email)
-2.  **Encryption**: Please use our [PGP Key](https://aegisclaw.dev/security.asc) (coming soon) to encrypt sensitive reports.
-3.  **Response Timeline**: We aim to acknowledge reports within 24 hours and provide an initial assessment within 72 hours.
+1.  **Email**: security@aegisclaw.dev
+2.  **Response Timeline**: We aim to acknowledge reports within 24 hours and provide an initial assessment within 72 hours.
 
 ## Threat Model
 

@@ -492,6 +492,16 @@ audit log. The same proxy is wired into the harness automatically:
 - [ ] **Skill Supply-Chain Security**: SBOM generation and image vulnerability
   scanning for skills, with a signature transparency log.
 
+### v0.10.0 (Agent Harness Control Plane)
+
+- [x] **Agent Harness**: Wrap a whole running agent (OpenClaw, Hermes, or any other) and broker all four action planes inline — tools (MCP gateway), model (LLM proxy), network (forced egress), and host (hardened sandbox).
+- [x] **MCP Gateway**: Per-call policy→approval→guardrail pipeline for every `tools/call`; tool-description hash-pinning to detect tool-poisoning / rug-pull attacks.
+- [x] **LLM Proxy**: Prompt/response guardrails, secret redaction, per-session token/cost/request budgets, and runaway-loop detection.
+- [x] **Egress SSRF Protection + DLP**: Blocks loopback, private, and cloud instance-metadata addresses at dial time (DNS-rebinding-resistant); blocks plaintext requests carrying injected secret values.
+- [x] **Egress Response Scanning**: Scans plaintext HTTP response bodies for indirect prompt injection before relaying them to the agent.
+- [x] **OWASP ASI Compliance**: Maps AegisClaw controls to OWASP Top 10 for Agentic Applications (ASI01–ASI10).
+- [x] **Data Lineage Tracking**: Provenance metadata for skill inputs, outputs, secrets, and external API calls.
+
 ### Long-Term Vision
 
 - [ ] **Compliance Frameworks**: Pre-built policy packs for SOC 2, HIPAA, GDPR.
